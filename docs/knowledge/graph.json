@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage3_pilot_accepted_integration_pending",
+  "status": "stage3_integration_implemented_validation_pending",
   "current_stage": 3,
   "nodes": [
     {
@@ -22,7 +22,7 @@
       "kind": "module",
       "planned_path": "graph/",
       "stage": 3,
-      "status": "pilot_accepted_hybrid_integration_pending",
+      "status": "integrated_pending_validation",
       "path": "graph/sparse.py"
     },
     {
@@ -1032,6 +1032,72 @@
       "stage": 3,
       "tests": [],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.sparse.finalize",
+      "path": "graph/sparse.py",
+      "inputs": [
+        "n,candidates,cap,policy"
+      ],
+      "outputs": [
+        "CSR,count"
+      ],
+      "calls": [
+        "graph.isolation_validation.allocate"
+      ],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 3,
+      "tests": [
+        "tests/test_sparse_graph.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.sparse.build_indexed_graph",
+      "path": "graph/sparse.py",
+      "inputs": [
+        "x,b,c,k,cap,threshold,block,policy,pool,eps"
+      ],
+      "outputs": [
+        "CSR,count"
+      ],
+      "calls": [
+        "preprocessing.reduction.embedding",
+        "scipy.spatial.cKDTree",
+        "graph.sparse.finalize"
+      ],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 3,
+      "tests": [
+        "tests/test_sparse_graph.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.pilot.label_summary",
+      "path": "graph/pilot.py",
+      "inputs": [
+        "degree,representative_labels,member_attack,member_total"
+      ],
+      "outputs": [
+        "label metrics"
+      ],
+      "calls": [],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 3,
+      "tests": [
+        "tests/test_sparse_graph.py"
+      ],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -1056,7 +1122,8 @@
     "Stage 3 approved and bounded exact graph pilot implemented. graph.pilot.chunks coalesces file-order rows within selected logical day, retaining relative source path and zero-based file row offset. Not chronological within day or class-balanced. Frozen transform then HSARS 10%, persist mapping and multiplicity locally. graph.sparse.build_graph computes signed mixed similarity 0.6 cosine + 0.4 discrete match across all pilot representatives including cross-chunk, excludes zero-norm and self pairs, union top12, strict >0.85, deterministic descending-weight greedy symmetric degree cap20, CSR including isolates. Default 5 chunks, max20, block128; exact quadratic pilot not full-day scalable ANN. Report coverage, degree, edges, cross-chunk edges, isolates, CSR bytes, prepare and graph time; peak RAM, candidate recall, chronological merge and downstream validation pending. SciPy dependency added. Local tests not executed. Run python -m graph.pilot; artifacts/graph/pilot/report.json only to share. Mapping and nodes sensitive, keep local. Use fresh output directory for each run.",
     "Stage 3 pilot report reviewed: 50000 rows, 5 chunks, 5000 nodes, coverage 1.0, 53709 union candidates, 11606 retained edges, 4178 cross-chunk edges, 3422 isolates (68.44%), max degree 20, mean degree 4.6424, minimum edge similarity .8546473911, preparation 4.68353s, graph 4.08858s, CSR 298548 bytes. Structural acceptance blocked: distinguish threshold isolates, top-k candidate isolates and degree-cap-induced isolates; greedy strongest-first saturation is a hypothesis, not confirmed. Proposed coverage-first degree-constrained edge allocation then weight-prioritized fill, compare against current baseline with unchanged strict threshold and cap; preserve genuine isolates. No code changes or unit test confirmation. Full-day ANN, peak RAM, chronological ordering, independent temporal validation pending.",
     "User target approximately 10% isolates, not a forced connectivity constraint. Added graph/isolation_validation.py: scan saved pilot nodes once in blocks, exact best non-self mixed similarity and union top12 candidates above .775; evaluate strict thresholds .85,.825,.8,.775 with cap20, compare strongest-first and coverage-first (match two isolates, attach remaining isolates, fill strongest). Distinguish undefined cosine, no threshold neighbor, candidate isolates, cap-induced isolates; report edge weights, cross-chunk edges and timings. No production threshold change; local run and tests pending. Output artifacts/graph/pilot/isolation_report.json.",
-    "Stage 3 isolation report reviewed and user accepts approximately 20% isolates. At all tested thresholds .85,.825,.8,.775, all 5000 nodes have eligible neighbors; Weight-First yields 3422 isolates (68.44%), Coverage-First followed by Weight-First yields 1046 (20.92%). At .85 hybrid retains 12503 edges, 6123 cross-chunk edges, mean similarity .998012824, cap20. Keep strict .85, k12, cap20, HSARS .1. Record Weight-First as baseline and final fill phase; hybrid is recommended continuation based on accepted result, not yet integrated into graph.pilot/build_graph. Pilot acceptance only; integration, regression tests, label composition, chronological mixed chunks, scalable candidate search, peak RAM and independent evaluation remain pending. No production code changed."
+    "Stage 3 isolation report reviewed and user accepts approximately 20% isolates. At all tested thresholds .85,.825,.8,.775, all 5000 nodes have eligible neighbors; Weight-First yields 3422 isolates (68.44%), Coverage-First followed by Weight-First yields 1046 (20.92%). At .85 hybrid retains 12503 edges, 6123 cross-chunk edges, mean similarity .998012824, cap20. Keep strict .85, k12, cap20, HSARS .1. Record Weight-First as baseline and final fill phase; hybrid is recommended continuation based on accepted result, not yet integrated into graph.pilot/build_graph. Pilot acceptance only; integration, regression tests, label composition, chronological mixed chunks, scalable candidate search, peak RAM and independent evaluation remain pending. No production code changed.",
+    "Stage3 integration: build_graph defaults coverage-first then weight-first via isolation_validation.allocate; weight_first baseline remains selectable. finalize shares CSR allocation; build_indexed_graph uses scipy cKDTree on mixed embedding, pool64 eps.2, exact mixed rerank, approximate candidate recall and speed unverified. graph.pilot.chunks now reads selected logical day, canonicalizes batches, sorts feature arrays by timestamp (one-day RAM, not fully streaming), preserves file/offset provenance. label_summary uses partition labels after selection, reports representative and mapped-member isolation rates. CLI --backend exact/indexed, --full-day requires indexed. Tests added, not executed locally. Pilot exact then indexed on same chronological sample before full-day; full-day memory, runtime, candidate recall and isolation rate not established. Stage4 not started."
   ],
   "profile_summary": {
     "rows": 48759366,
@@ -1095,6 +1162,6 @@
     "k": 12,
     "degree_cap": 20,
     "accepted_pilot_isolate_fraction": 0.2092,
-    "production_integrated": false
+    "production_integrated": true
   }
 }
