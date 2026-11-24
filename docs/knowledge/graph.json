@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage2_execution_reviewed_diagnostics_pending",
+  "status": "stage2_similarity_validation_implemented_pending_run",
   "current_stage": 2,
   "nodes": [
     {
@@ -118,6 +118,19 @@
       "kind": "artifact",
       "path": "artifacts/dataset_profile.json",
       "status": "report_received_reviewed"
+    },
+    {
+      "id": "similarity_validation",
+      "kind": "module",
+      "path": "preprocessing/similarity_validation.py",
+      "stage": 2,
+      "status": "implemented_pending_test"
+    },
+    {
+      "id": "similarity_report",
+      "kind": "artifact",
+      "path": "artifacts/preprocessing/similarity_report.json",
+      "status": "pending_run"
     }
   ],
   "edges": [
@@ -202,6 +215,26 @@
       "from": "canonical_reader",
       "to": "dataset_profile",
       "relation": "profiled_by_data.profile.profile_dataset"
+    },
+    {
+      "from": "canonical_reader",
+      "to": "similarity_validation",
+      "relation": "feeds"
+    },
+    {
+      "from": "preprocessing",
+      "to": "similarity_validation",
+      "relation": "fixed_transform"
+    },
+    {
+      "from": "similarity_validation",
+      "to": "similarity_report",
+      "relation": "produces"
+    },
+    {
+      "from": "similarity_report",
+      "to": "graph",
+      "relation": "validation_gate"
     }
   ],
   "symbols": [
@@ -570,6 +603,104 @@
         "tests/test_preprocessing.py"
       ],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.similarity_validation.daily_samples",
+      "path": "preprocessing/similarity_validation.py",
+      "inputs": [
+        "root",
+        "batch_size",
+        "limit",
+        "seed"
+      ],
+      "outputs": [
+        "day,sample"
+      ],
+      "calls": [
+        "data.reader.iter_batches",
+        "preprocessing.features.extract_features",
+        "preprocessing.transform.sample_training"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_similarity_validation.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.similarity_validation.normalize",
+      "path": "preprocessing/similarity_validation.py",
+      "inputs": [
+        "matrix"
+      ],
+      "outputs": [
+        "unit vectors,valid mask"
+      ],
+      "calls": [
+        "numpy.linalg.norm"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_similarity_validation.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.similarity_validation.evaluate_sample",
+      "path": "preprocessing/similarity_validation.py",
+      "inputs": [
+        "sample",
+        "model",
+        "block"
+      ],
+      "outputs": [
+        "daily similarity statistics"
+      ],
+      "calls": [
+        "normalize",
+        "preprocessing.transform.Transform.apply",
+        "numpy.histogram"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_similarity_validation.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.similarity_validation.main",
+      "path": "preprocessing/similarity_validation.py",
+      "inputs": [
+        "CLI"
+      ],
+      "outputs": [
+        "similarity_report.json"
+      ],
+      "calls": [
+        "daily_samples",
+        "evaluate_sample"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_similarity_validation.py"
+      ],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -596,5 +727,18 @@
     "affected_files": 5340,
     "missing_label_binary": 7319029
   },
-  "batch_size": 10000
+  "batch_size": 10000,
+  "similarity_policy": {
+    "threshold": 0.85,
+    "comparison": "strict_greater_than",
+    "historical_user_report": "ordinary cosine near 0.995; ZCA improved discrimination at 0.85",
+    "batch_size": 10000,
+    "sample_per_day": 10000,
+    "block_size": 256,
+    "mixed_weight": 0.6,
+    "mixed_formula_status": "candidate_pending_upstream_parity",
+    "knn": 12,
+    "max_degree": 20,
+    "notes": "Stage 2.1: user reports prior ordinary cosine similarities near 0.995 and improved discrimination after ZCA at threshold 0.85; historical observation, not measured by current code. Keep strict similarity > 0.85 as edge eligibility; do not artificially suppress genuine similarity or raise threshold to hide poor scaling. ZCA is a train-fitted continuous vector transform, not a similarity metric. Compare raw, robust, ZCA cosine and candidate mixed signed cosine (0.6) plus discrete exact match (0.4); upstream formula parity pending. Sample up to 10000 uniformly per logical day with deterministic seed, read in batches of 10000, compute all distinct within-sample pairs in 256-row blocks, exclude undefined zero-norm cosine pairs, report distributions, fractions above 0.85 and 0.995, threshold-only degree/isolation and same/cross partition rates (diagnostic only). No full graph, no threshold tuning or refit. Future union kNN k=12 and degree cap 20 remain candidate constraints. Daily sample degree is not full graph degree. Source overlap, final temporal split, cross-file coalescing, epsilon sensitivity and local tests remain pending. Output artifacts/preprocessing/similarity_report.json."
+  }
 }
