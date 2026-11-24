@@ -13,7 +13,7 @@ import pyarrow.compute as pc
 from preprocessing.features import extract_features
 from preprocessing.transform import Transform
 from preprocessing.reduction import select_representatives
-from graph.sparse import build_graph
+from graph.sparse import build_graph,build_indexed_graph
 
 def chunks(root,day_filter,batch_size=BATCH_SIZE):
     """Sort one logical day by canonical timestamp; memory scales with one day."""
@@ -65,13 +65,16 @@ def main():
     p.add_argument("--max-chunks",type=int,default=5)
     p.add_argument("--transform",type=Path,default=Path("artifacts/preprocessing/transform.npz"))
     p.add_argument("--output",type=Path,default=Path("artifacts/graph/pilot"))
+    p.add_argument("--backend",choices=("exact","indexed"),default="exact")
+    p.add_argument("--full-day",action="store_true")
     a=p.parse_args()
     if not 1<=a.max_chunks<=20:p.error("pilot supports 1 to 20 chunks")
+    if a.full_day and a.backend!="indexed":p.error("full-day requires indexed backend")
     a.output.mkdir(parents=True,exist_ok=True)
     with np.load(a.transform,allow_pickle=False) as f:model=Transform(*(f[k] for k in ("median","scale","center","whitening")))
     xs=[];bs=[];cs=[];chunk_ids=[];rep_labels=[];member_attacks=[];member_totals=[];total=0;covered=0;start=time.perf_counter()
     from itertools import islice
-    for i,(data,source,offset) in enumerate(islice(chunks(a.root,a.day),a.max_chunks)):
+    for i,(data,source,offset) in enumerate(islice(chunks(a.root,a.day),None if a.full_day else a.max_chunks)):
         x=model.apply(data[:,:11]);b=data[:,11:22];c=data[:,22:25]
         r=select_representatives(x,b,c,seed=RANDOM_SEED+i)
         ids=r["indices"];base=sum(map(len,xs))
@@ -84,12 +87,14 @@ def main():
     if not total:raise ValueError("No records for selected day")
     x,b,c,chunk_id=map(np.concatenate,(xs,bs,cs,chunk_ids))
     prep=time.perf_counter()-start;t=time.perf_counter()
-    g,candidates=build_graph(x,b,c)
+    g,candidates=(build_graph if a.backend=="exact" else build_indexed_graph)(x,b,c)
     graph_seconds=time.perf_counter()-t
     degree=np.diff(g.indptr);row,col=g.nonzero()
     save_npz(a.output/"adjacency.npz",g)
     np.savez_compressed(a.output/"nodes.npz",x=x,b=b,c=c,chunk_id=chunk_id)
-    report={"day":a.day,"rows":total,"chunks":len(xs),"nodes":len(x),"edges":g.nnz//2,"union_candidates":candidates,"cross_chunk_edges":int(np.count_nonzero(chunk_id[row]!=chunk_id[col])//2),"isolates":int(np.count_nonzero(degree==0)),"max_degree":int(degree.max()),"mean_degree":float(degree.mean()),"min_edge_similarity":float(g.data.min()) if g.nnz else None,"coverage":covered/total,"prepare_seconds":prep,"graph_seconds":graph_seconds,"csr_bytes":g.data.nbytes+g.indices.nbytes+g.indptr.nbytes,"limitations":"Exact pilot; chronological within logical day, one-day feature arrays in RAM; no full-day ANN, peak RAM or downstream validation."}
+    report={"day":a.day,"rows":total,"chunks":len(xs),"nodes":len(x),"edges":g.nnz//2,"union_candidates":candidates,"cross_chunk_edges":int(np.count_nonzero(chunk_id[row]!=chunk_id[col])//2),"isolates":int(np.count_nonzero(degree==0)),"max_degree":int(degree.max()),"mean_degree":float(degree.mean()),"min_edge_similarity":float(g.data.min()) if g.nnz else None,"coverage":covered/total,"prepare_seconds":prep,"graph_seconds":graph_seconds,"csr_bytes":g.data.nbytes+g.indices.nbytes+g.indptr.nbytes,"limitations":"Chronological logical day; one-day feature arrays in RAM; indexed candidate recall, peak RAM and downstream validation pending."}
+    report["backend"]=a.backend
+    report["full_day"]=a.full_day
     report["labels"]=label_summary(degree,np.concatenate(rep_labels),np.concatenate(member_attacks),np.concatenate(member_totals))
     report["allocation_policy"]="coverage_first_then_weight_first"
     report["isolate_fraction"]=float((degree==0).mean())
