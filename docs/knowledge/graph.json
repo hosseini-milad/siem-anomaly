@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage1_profile_pending",
+  "status": "stage1_profile_retry_pending",
   "current_stage": 1,
   "nodes": [
     {
@@ -258,13 +258,15 @@
       "inputs": [
         "batch",
         "day",
-        "filename"
+        "filename",
+        "optional diagnostics"
       ],
       "outputs": [
         "canonical batch"
       ],
       "calls": [
-        "pyarrow.compute.cast"
+        "pyarrow.compute.cast",
+        "data.reader.safe_integer_cast"
       ],
       "dependencies": [
         "pyarrow"
@@ -280,7 +282,8 @@
       "path": "data/reader.py",
       "inputs": [
         "root",
-        "batch_size"
+        "batch_size",
+        "optional diagnostics by file"
       ],
       "outputs": [
         "day, kind, path, batch"
@@ -324,7 +327,8 @@
         "batch_size"
       ],
       "outputs": [
-        "aggregate report"
+        "aggregate report",
+        "cast_issues_by_file and invalid_integer_cast counts"
       ],
       "calls": [
         "data.reader.iter_batches",
@@ -355,6 +359,29 @@
       ],
       "stage": 1,
       "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.reader.safe_integer_cast",
+      "path": "data/reader.py",
+      "inputs": [
+        "Arrow array"
+      ],
+      "outputs": [
+        "int64 array with invalid floats nulled"
+      ],
+      "calls": [
+        "pyarrow.compute.cast",
+        "pyarrow.compute.floor",
+        "pyarrow.compute.if_else"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [
+        "tests/test_reader.py"
+      ],
       "status": "implemented_pending_test"
     }
   ],
