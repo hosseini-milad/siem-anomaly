@@ -14,6 +14,7 @@ from preprocessing.features import extract_features
 from preprocessing.transform import Transform
 from preprocessing.reduction import select_representatives
 from graph.sparse import build_graph,build_indexed_graph
+from graph.components import partition_labels
 
 def chunks(root,day_filter,batch_size=BATCH_SIZE):
     """Sort one logical day by canonical timestamp; memory scales with one day."""
@@ -80,7 +81,7 @@ def main():
         ids=r["indices"];base=sum(map(len,xs))
         mapping=base+np.searchsorted(ids,r["assignment"])
         np.savez_compressed(a.output/f"mapping_{i:03d}.npz",source=source,offset=offset,node=mapping,similarity=r["similarity"],covered=r["covered"],representative_rows=ids,multiplicity=r["multiplicity"])
-        labels=np.char.find(source,"/type=attacks/")>=0
+        labels=partition_labels(source)
         rep_labels.append(labels[ids]);member_attacks.append(np.bincount(mapping-base,weights=labels.astype(float),minlength=len(ids)).astype(np.int64));member_totals.append(r["multiplicity"])
         xs.append(x[ids]);bs.append(b[ids]);cs.append(c[ids]);chunk_ids.append(np.full(len(ids),i))
         total+=len(x);covered+=int(r["covered"].sum())
