@@ -29,3 +29,5 @@ flowchart TD
  V --> O[Local profile JSON]
 ```
 Original flow timestamp retained; logical date follows folder. Tests and profile execution pending.
+
+Stage 1 fix: `data.reader.canonicalize` calls `data.reader.safe_integer_cast`; invalid float-to-integer values become null and `iter_batches` forwards per-file counts to `data.profile.profile_dataset`. Regression test added; local retry pending.
