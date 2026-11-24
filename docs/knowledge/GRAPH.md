@@ -19,3 +19,13 @@ flowchart TD
 For every implemented function add its qualified name, repository path, inputs, outputs, calls, dependencies, stage, tests and status to graph.json. Add cross-module edges with explicit relation types. Do not infer call relationships without checking code. This view documents dependencies, not generated runtime images.
 
 Stage 1 symbols: `data.audit.audit_dataset(root)` reads Parquet footers; `data.audit.main()` invokes it and writes local JSON. Tests: `tests/test_dataset_audit.py`. See [dataset instructions](../DATASET.md).
+
+## Stage 1 canonical reader
+```mermaid
+flowchart TD
+ P[Parquet] --> R[data.reader.iter_batches]
+ R --> C[data.reader.canonicalize]
+ C --> V[data.profile.profile_dataset]
+ V --> O[Local profile JSON]
+```
+Original flow timestamp retained; logical date follows folder. Tests and profile execution pending.
