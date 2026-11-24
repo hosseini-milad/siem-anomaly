@@ -1,9 +1,9 @@
 # Roadmap
-Status: documentation baseline; no executable code implemented.
+Status: stage 1 metadata audit implemented; tests and local dataset audit pending.
 | Stage | Deliverable | Status |
 |---|---|---|
 | 0 | Architecture and knowledge graph | documented |
-| 1 | Confirm historical source, schema, timestamps, labels, volumes, missingness and split | next; awaiting source confirmation |
+| 1 | Confirm historical source, schema, timestamps, labels, volumes, missingness and split | in progress; source layout supplied; metadata audit implemented, validation pending |
 | 2 | Fit preprocessing on training data; persist transforms | planned |
 | 3 | Sparse mixed-similarity graph | planned |
 | 4 | Connected components including isolates | planned |
