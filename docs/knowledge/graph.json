@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage3_pilot_reviewed_structural_acceptance_blocked",
+  "status": "stage3_1_isolation_validation_pending_run",
   "current_stage": 3,
   "nodes": [
     {
@@ -164,6 +164,12 @@
       "kind": "artifact",
       "path": "artifacts/graph/pilot/report.json",
       "status": "reviewed"
+    },
+    {
+      "id": "isolation_validation",
+      "kind": "module",
+      "path": "graph/isolation_validation.py",
+      "status": "implemented_pending_test"
     }
   ],
   "edges": [
@@ -308,6 +314,11 @@
       "from": "graph_pilot",
       "to": "graph_pilot_report",
       "relation": "produces"
+    },
+    {
+      "from": "graph_pilot",
+      "to": "isolation_validation",
+      "relation": "saved_nodes"
     }
   ],
   "symbols": [
@@ -946,6 +957,81 @@
       "stage": 3,
       "tests": [],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.isolation_validation.scan",
+      "path": "graph/isolation_validation.py",
+      "inputs": [
+        "x,b,c,k,block"
+      ],
+      "outputs": [
+        "best,valid,pairs"
+      ],
+      "calls": [
+        "numpy.argsort"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 3,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.isolation_validation.allocate",
+      "path": "graph/isolation_validation.py",
+      "inputs": [
+        "n,edges,cap,coverage"
+      ],
+      "outputs": [
+        "degree,chosen"
+      ],
+      "calls": [],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 3,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.isolation_validation.evaluate",
+      "path": "graph/isolation_validation.py",
+      "inputs": [
+        "best,valid,pairs,chunk"
+      ],
+      "outputs": [
+        "threshold metrics"
+      ],
+      "calls": [
+        "graph.isolation_validation.allocate"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 3,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.isolation_validation.main",
+      "path": "graph/isolation_validation.py",
+      "inputs": [
+        "CLI"
+      ],
+      "outputs": [
+        "isolation_report.json"
+      ],
+      "calls": [
+        "graph.isolation_validation.scan",
+        "graph.isolation_validation.evaluate"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 3,
+      "tests": [],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -968,7 +1054,8 @@
     "Stage 2.2 pilot HSARS: 256 random anchors, block matrix assignment in weighted normalized continuous + one-hot discrete embedding (candidate mixed similarity), inverse sqrt group-size weighted coverage sampling, low anchor similarity rarity selection, then low selected-set similarity diversity fill. 10% ceiling budget; anchors included before allocating remaining budget 60% coverage, 15% rarity, remainder diversity. Zero-norm rows flagged uncovered. Final mapping and multiplicity retained in memory; pilot report only. Compare identical daily 10000 samples against random, report coverage >0.85, p05, mean, partition coverage, selection time. No raw KNN, no full pair matrix; exact upstream parity, production coalescing, rare subtype recall, cross-chunk and downstream evaluation pending. Parameters provisional; local tests not run.",
     "Stage 2.2 pilot report reviewed: 26 daily samples of 10000, 26000 representatives, hybrid coverage 100% versus random 99.545% (1183 uncovered random rows); mean similarity .989006 vs .986190, mean daily p05 .946145 vs .929323; mean selection+assignment time .064702 vs .038395 seconds, 1.685x. Hybrid attack and normal assignment coverage 100% on samples, not detection recall. Hybrid selected 4907 attack representatives vs random 8363; multiplicity and subtype coverage require evaluation. Keep 256 anchors, 10% budget, strict >.85 provisionally. Next gate: production chronological coalesced chunks, stable provenance, cross-chunk sparse graph pilot, rare subtype and non-self coverage, memory and end-to-end timing; source overlap and mixed formula parity pending. No unit-test confirmation. No code change.",
     "Stage 3 approved and bounded exact graph pilot implemented. graph.pilot.chunks coalesces file-order rows within selected logical day, retaining relative source path and zero-based file row offset. Not chronological within day or class-balanced. Frozen transform then HSARS 10%, persist mapping and multiplicity locally. graph.sparse.build_graph computes signed mixed similarity 0.6 cosine + 0.4 discrete match across all pilot representatives including cross-chunk, excludes zero-norm and self pairs, union top12, strict >0.85, deterministic descending-weight greedy symmetric degree cap20, CSR including isolates. Default 5 chunks, max20, block128; exact quadratic pilot not full-day scalable ANN. Report coverage, degree, edges, cross-chunk edges, isolates, CSR bytes, prepare and graph time; peak RAM, candidate recall, chronological merge and downstream validation pending. SciPy dependency added. Local tests not executed. Run python -m graph.pilot; artifacts/graph/pilot/report.json only to share. Mapping and nodes sensitive, keep local. Use fresh output directory for each run.",
-    "Stage 3 pilot report reviewed: 50000 rows, 5 chunks, 5000 nodes, coverage 1.0, 53709 union candidates, 11606 retained edges, 4178 cross-chunk edges, 3422 isolates (68.44%), max degree 20, mean degree 4.6424, minimum edge similarity .8546473911, preparation 4.68353s, graph 4.08858s, CSR 298548 bytes. Structural acceptance blocked: distinguish threshold isolates, top-k candidate isolates and degree-cap-induced isolates; greedy strongest-first saturation is a hypothesis, not confirmed. Proposed coverage-first degree-constrained edge allocation then weight-prioritized fill, compare against current baseline with unchanged strict threshold and cap; preserve genuine isolates. No code changes or unit test confirmation. Full-day ANN, peak RAM, chronological ordering, independent temporal validation pending."
+    "Stage 3 pilot report reviewed: 50000 rows, 5 chunks, 5000 nodes, coverage 1.0, 53709 union candidates, 11606 retained edges, 4178 cross-chunk edges, 3422 isolates (68.44%), max degree 20, mean degree 4.6424, minimum edge similarity .8546473911, preparation 4.68353s, graph 4.08858s, CSR 298548 bytes. Structural acceptance blocked: distinguish threshold isolates, top-k candidate isolates and degree-cap-induced isolates; greedy strongest-first saturation is a hypothesis, not confirmed. Proposed coverage-first degree-constrained edge allocation then weight-prioritized fill, compare against current baseline with unchanged strict threshold and cap; preserve genuine isolates. No code changes or unit test confirmation. Full-day ANN, peak RAM, chronological ordering, independent temporal validation pending.",
+    "User target approximately 10% isolates, not a forced connectivity constraint. Added graph/isolation_validation.py: scan saved pilot nodes once in blocks, exact best non-self mixed similarity and union top12 candidates above .775; evaluate strict thresholds .85,.825,.8,.775 with cap20, compare strongest-first and coverage-first (match two isolates, attach remaining isolates, fill strongest). Distinguish undefined cosine, no threshold neighbor, candidate isolates, cap-induced isolates; report edge weights, cross-chunk edges and timings. No production threshold change; local run and tests pending. Output artifacts/graph/pilot/isolation_report.json."
   ],
   "profile_summary": {
     "rows": 48759366,
