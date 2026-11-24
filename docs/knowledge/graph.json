@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage2_similarity_validation_implemented_pending_run",
+  "status": "stage2_similarity_report_reviewed_pilot_pending",
   "current_stage": 2,
   "nodes": [
     {
@@ -130,7 +130,7 @@
       "id": "similarity_report",
       "kind": "artifact",
       "path": "artifacts/preprocessing/similarity_report.json",
-      "status": "pending_run"
+      "status": "reviewed"
     }
   ],
   "edges": [
@@ -717,7 +717,8 @@
   "open_questions": [
     "Stage 2 execution report reviewed: all rows processed, batch target 10000, 200000 fit rows, 25 features. NPZ inspected: finite float64 arrays, positive scales, symmetric positive definite whitening, condition number approximately 871444. Four features have zero median and scaled mean with unit stored scale; variance requires verification. Stage 2 not scientifically accepted yet; feature distribution, covariance diagnostics, source overlap, final split and cross-file batching pending. Unit test results not supplied.",
     "external database type and schema",
-    "exact scoring and model artifact format"
+    "exact scoring and model artifact format",
+    "Stage 2.1 report reviewed: 26 daily samples, no undefined cosine pairs. Raw >0.85 rate 76.63%, robust 24.94%, ZCA 18.30%, candidate mixed 16.87% (daily means). Mixed reduces cross-partition threshold eligibility versus raw; not detection accuracy. Four continuous features are constant zero in clean-reference samples; retain pending missingness/source and active-subspace review. Keep threshold 0.85 and current transform provisionally; graph pilot must evaluate sparse kNN, degree caps, candidate recall and cross-batch neighbors. No final scientific acceptance, independent temporal validation, upstream mixed-formula parity or unit test confirmation yet."
   ],
   "profile_summary": {
     "rows": 48759366,
