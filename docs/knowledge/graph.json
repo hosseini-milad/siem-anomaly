@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "stage1_profile_reviewed_pending_approval",
-  "current_stage": 1,
+  "status": "stage2_initial_implementation_pending_validation",
+  "current_stage": 2,
   "nodes": [
     {
       "id": "data",
@@ -15,7 +15,7 @@
       "kind": "module",
       "planned_path": "preprocessing/",
       "stage": 2,
-      "status": "planned"
+      "status": "implemented_pending_test"
     },
     {
       "id": "graph",
@@ -78,7 +78,7 @@
       "kind": "module",
       "planned_path": "config/",
       "stage": 0,
-      "status": "planned"
+      "status": "implemented"
     },
     {
       "id": "tests",
@@ -383,6 +383,193 @@
         "tests/test_reader.py"
       ],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.features.numeric",
+      "path": "preprocessing/features.py",
+      "inputs": [
+        "batch",
+        "name"
+      ],
+      "outputs": [
+        "numeric array"
+      ],
+      "calls": [
+        "pyarrow.compute.cast"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.features.port_category",
+      "path": "preprocessing/features.py",
+      "inputs": [
+        "array"
+      ],
+      "outputs": [
+        "category array"
+      ],
+      "calls": [
+        "numpy.select"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.features.extract_features",
+      "path": "preprocessing/features.py",
+      "inputs": [
+        "batch"
+      ],
+      "outputs": [
+        "continuous,binary,categorical arrays"
+      ],
+      "calls": [
+        "numeric",
+        "port_category"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.transform.Transform.apply",
+      "path": "preprocessing/transform.py",
+      "inputs": [
+        "continuous array"
+      ],
+      "outputs": [
+        "whitened array"
+      ],
+      "calls": [
+        "numpy.where"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.transform.fit_transform",
+      "path": "preprocessing/transform.py",
+      "inputs": [
+        "training sample"
+      ],
+      "outputs": [
+        "Transform"
+      ],
+      "calls": [
+        "numpy.linalg.eigh"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.transform.sample_training",
+      "path": "preprocessing/transform.py",
+      "inputs": [
+        "training batches",
+        "limit",
+        "seed"
+      ],
+      "outputs": [
+        "bounded sample"
+      ],
+      "calls": [
+        "numpy.argpartition"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.run.reference_batches",
+      "path": "preprocessing/run.py",
+      "inputs": [
+        "root",
+        "batch_size"
+      ],
+      "outputs": [
+        "training arrays"
+      ],
+      "calls": [
+        "data.reader.iter_batches",
+        "extract_features"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.run.main",
+      "path": "preprocessing/run.py",
+      "inputs": [
+        "CLI"
+      ],
+      "outputs": [
+        "transform.npz",
+        "report.json"
+      ],
+      "calls": [
+        "reference_batches",
+        "sample_training",
+        "fit_transform",
+        "extract_features",
+        "Transform.apply"
+      ],
+      "dependencies": [
+        "numpy",
+        "pyarrow"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_preprocessing.py"
+      ],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -397,7 +584,7 @@
     "status"
   ],
   "open_questions": [
-    "Approve feature policy and source-overlap check before stage 2; unit test execution not confirmed",
+    "Source overlap and final split pending; provisional clean-reference fit only; local tests and stage2 report pending",
     "external database type and schema",
     "exact scoring and model artifact format"
   ],
@@ -408,5 +595,6 @@
     "invalid_dst_port": 19051,
     "affected_files": 5340,
     "missing_label_binary": 7319029
-  }
+  },
+  "batch_size": 10000
 }
