@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage2_initial_implementation_pending_validation",
+  "status": "stage2_execution_reviewed_diagnostics_pending",
   "current_stage": 2,
   "nodes": [
     {
@@ -15,7 +15,7 @@
       "kind": "module",
       "planned_path": "preprocessing/",
       "stage": 2,
-      "status": "implemented_pending_test"
+      "status": "execution_report_confirmed_diagnostics_pending"
     },
     {
       "id": "graph",
@@ -584,7 +584,7 @@
     "status"
   ],
   "open_questions": [
-    "Source overlap and final split pending; provisional clean-reference fit only; local tests and stage2 report pending",
+    "Stage 2 execution report reviewed: all rows processed, batch target 10000, 200000 fit rows, 25 features. NPZ inspected: finite float64 arrays, positive scales, symmetric positive definite whitening, condition number approximately 871444. Four features have zero median and scaled mean with unit stored scale; variance requires verification. Stage 2 not scientifically accepted yet; feature distribution, covariance diagnostics, source overlap, final split and cross-file batching pending. Unit test results not supplied.",
     "external database type and schema",
     "exact scoring and model artifact format"
   ],
