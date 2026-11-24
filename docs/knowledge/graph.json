@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "planned",
+  "status": "stage1_implementation_pending_validation",
   "current_stage": 1,
   "nodes": [
     {
@@ -8,7 +8,7 @@
       "kind": "module",
       "planned_path": "data/",
       "stage": 1,
-      "status": "planned"
+      "status": "implemented_pending_test"
     },
     {
       "id": "preprocessing",
@@ -91,6 +91,21 @@
       "id": "external_db",
       "kind": "external",
       "status": "unconfirmed"
+    },
+    {
+      "id": "historical_parquet",
+      "kind": "dataset",
+      "path": "dataset/parquet",
+      "status": "user_reported",
+      "start": "2026-06-15",
+      "end": "2026-07-10",
+      "clean_end": "2026-06-20"
+    },
+    {
+      "id": "dataset_audit",
+      "kind": "artifact",
+      "path": "artifacts/dataset_audit.json",
+      "status": "pending"
     }
   ],
   "edges": [
@@ -153,9 +168,69 @@
       "to": "api",
       "relation": "feeds",
       "status": "planned"
+    },
+    {
+      "from": "historical_parquet",
+      "to": "data",
+      "relation": "feeds",
+      "status": "implemented_pending_test"
+    },
+    {
+      "from": "data",
+      "to": "dataset_audit",
+      "relation": "produces",
+      "status": "implemented_pending_test"
     }
   ],
-  "symbols": [],
+  "symbols": [
+    {
+      "qualified_name": "data.audit.audit_dataset",
+      "path": "data/audit.py",
+      "inputs": [
+        "root: Path"
+      ],
+      "outputs": [
+        "dict: days, schemas, issues, totals, schema_variants, limitations"
+      ],
+      "calls": [
+        "pyarrow.parquet.ParquetFile"
+      ],
+      "dependencies": [
+        "pyarrow",
+        "pathlib",
+        "datetime",
+        "collections",
+        "re"
+      ],
+      "stage": 1,
+      "tests": [
+        "tests/test_dataset_audit.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.audit.main",
+      "path": "data/audit.py",
+      "inputs": [
+        "CLI --root --output"
+      ],
+      "outputs": [
+        "JSON report",
+        "exit code"
+      ],
+      "calls": [
+        "data.audit.audit_dataset"
+      ],
+      "dependencies": [
+        "argparse",
+        "json",
+        "pathlib"
+      ],
+      "stage": 1,
+      "tests": [],
+      "status": "implemented_pending_test"
+    }
+  ],
   "symbol_fields": [
     "qualified_name",
     "path",
@@ -168,7 +243,7 @@
     "status"
   ],
   "open_questions": [
-    "historical source and schema",
+    "actual schema, counts, nulls, event timestamps and temporal split pending local audit",
     "external database type and schema",
     "exact scoring and model artifact format"
   ]
