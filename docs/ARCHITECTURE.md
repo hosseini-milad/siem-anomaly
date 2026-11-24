@@ -17,4 +17,4 @@ Proposed modular monolith. Python core independent of API and database. FastAPI 
 | tests/ | unit and integration tests |
 | artifacts/ | local generated outputs, not committed |
 Training: data -> preprocessing -> graph -> compression -> hierarchy -> learning -> evaluation -> storage. Inference: external adapter -> frozen preprocessing -> model scoring -> API. Evaluation gates release. No Django, GUI or visual reporting. Avoid API/DB coupling in scientific core.
-Upstream conceptual mappings: ingestion to data/preprocessing/graph/compression; pooling to compression; hierarchy to hierarchy; spectral_learning to learning. Audit actual code before reuse. Physical Python directories are not yet created.
+Upstream conceptual mappings: ingestion to data/preprocessing/graph/compression; pooling to compression; hierarchy to hierarchy; spectral_learning to learning. Audit actual code before reuse. Stage 1 data and tests directories created; remaining Python modules are planned.
