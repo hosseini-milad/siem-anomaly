@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "status": "planned",
+  "current_stage": 1,
+  "nodes": [
+    {
+      "id": "data",
+      "kind": "module",
+      "planned_path": "data/",
+      "stage": 1,
+      "status": "planned"
+    },
+    {
+      "id": "preprocessing",
+      "kind": "module",
+      "planned_path": "preprocessing/",
+      "stage": 2,
+      "status": "planned"
+    },
+    {
+      "id": "graph",
+      "kind": "module",
+      "planned_path": "graph/",
+      "stage": 3,
+      "status": "planned"
+    },
+    {
+      "id": "compression",
+      "kind": "module",
+      "planned_path": "compression/",
+      "stage": 5,
+      "status": "planned"
+    },
+    {
+      "id": "hierarchy",
+      "kind": "module",
+      "planned_path": "hierarchy/",
+      "stage": 6,
+      "status": "planned"
+    },
+    {
+      "id": "learning",
+      "kind": "module",
+      "planned_path": "learning/",
+      "stage": 7,
+      "status": "planned"
+    },
+    {
+      "id": "evaluation",
+      "kind": "module",
+      "planned_path": "evaluation/",
+      "stage": 8,
+      "status": "planned"
+    },
+    {
+      "id": "storage",
+      "kind": "module",
+      "planned_path": "storage/",
+      "stage": 9,
+      "status": "planned"
+    },
+    {
+      "id": "inference",
+      "kind": "module",
+      "planned_path": "inference/",
+      "stage": 10,
+      "status": "planned"
+    },
+    {
+      "id": "api",
+      "kind": "module",
+      "planned_path": "api/",
+      "stage": 10,
+      "status": "planned"
+    },
+    {
+      "id": "config",
+      "kind": "module",
+      "planned_path": "config/",
+      "stage": 0,
+      "status": "planned"
+    },
+    {
+      "id": "tests",
+      "kind": "module",
+      "planned_path": "tests/",
+      "stage": 0,
+      "status": "planned"
+    },
+    {
+      "id": "external_db",
+      "kind": "external",
+      "status": "unconfirmed"
+    }
+  ],
+  "edges": [
+    {
+      "from": "data",
+      "to": "preprocessing",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "preprocessing",
+      "to": "graph",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "graph",
+      "to": "compression",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "compression",
+      "to": "hierarchy",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "hierarchy",
+      "to": "learning",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "learning",
+      "to": "evaluation",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "evaluation",
+      "to": "storage",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "storage",
+      "to": "inference",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "external_db",
+      "to": "inference",
+      "relation": "feeds",
+      "status": "planned"
+    },
+    {
+      "from": "inference",
+      "to": "api",
+      "relation": "feeds",
+      "status": "planned"
+    }
+  ],
+  "symbols": [],
+  "symbol_fields": [
+    "qualified_name",
+    "path",
+    "inputs",
+    "outputs",
+    "calls",
+    "dependencies",
+    "stage",
+    "tests",
+    "status"
+  ],
+  "open_questions": [
+    "historical source and schema",
+    "external database type and schema",
+    "exact scoring and model artifact format"
+  ]
+}
