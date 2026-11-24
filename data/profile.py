@@ -6,13 +6,14 @@ from pathlib import Path
 import pyarrow as pa
 import pyarrow.compute as pc
 from data.reader import iter_batches
+from config.settings import BATCH_SIZE
 
 BINARY = set("flag_syn flag_ack flag_fin flag_rst flag_psh flag_urg is_syn_only is_encrypted_port proto_tcp proto_udp proto_icmp".split())
 
 def count_true(mask):
     return pc.sum(pc.cast(pc.fill_null(mask, False), pa.int64())).as_py() or 0
 
-def profile_dataset(root, batch_size=8192):
+def profile_dataset(root, batch_size=BATCH_SIZE):
     rows = 0
     nulls, invalid, labels = Counter(), Counter(), Counter()
     cast_issues = {}
@@ -40,7 +41,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root", type=Path, default=Path("dataset/parquet"))
     p.add_argument("--output", type=Path, default=Path("artifacts/dataset_profile.json"))
-    p.add_argument("--batch-size", type=int, default=8192)
+    p.add_argument("--batch-size", type=int, default=BATCH_SIZE)
     a = p.parse_args()
     report = profile_dataset(a.root, a.batch_size)
     a.output.parent.mkdir(parents=True, exist_ok=True)
