@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage1_profile_retry_pending",
+  "status": "stage1_profile_reviewed_pending_approval",
   "current_stage": 1,
   "nodes": [
     {
@@ -111,13 +111,13 @@
       "id": "canonical_reader",
       "kind": "module",
       "path": "data/reader.py",
-      "status": "implemented_pending_test"
+      "status": "profile_execution_confirmed"
     },
     {
       "id": "dataset_profile",
       "kind": "artifact",
       "path": "artifacts/dataset_profile.json",
-      "status": "pending"
+      "status": "report_received_reviewed"
     }
   ],
   "edges": [
@@ -397,8 +397,16 @@
     "status"
   ],
   "open_questions": [
-    "profile counts, cast failures, source overlap and temporal split pending; user approved logical folder date for reconstructed clean days",
+    "Approve feature policy and source-overlap check before stage 2; unit test execution not confirmed",
     "external database type and schema",
     "exact scoring and model artifact format"
-  ]
+  ],
+  "profile_summary": {
+    "rows": 48759366,
+    "normal": 29411750,
+    "attacks": 19347616,
+    "invalid_dst_port": 19051,
+    "affected_files": 5340,
+    "missing_label_binary": 7319029
+  }
 }
