@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage1_implementation_pending_validation",
+  "status": "stage1_profile_pending",
   "current_stage": 1,
   "nodes": [
     {
@@ -105,6 +105,18 @@
       "id": "dataset_audit",
       "kind": "artifact",
       "path": "artifacts/dataset_audit.json",
+      "status": "report_received"
+    },
+    {
+      "id": "canonical_reader",
+      "kind": "module",
+      "path": "data/reader.py",
+      "status": "implemented_pending_test"
+    },
+    {
+      "id": "dataset_profile",
+      "kind": "artifact",
+      "path": "artifacts/dataset_profile.json",
       "status": "pending"
     }
   ],
@@ -180,6 +192,16 @@
       "to": "dataset_audit",
       "relation": "produces",
       "status": "implemented_pending_test"
+    },
+    {
+      "from": "historical_parquet",
+      "to": "canonical_reader",
+      "relation": "feeds"
+    },
+    {
+      "from": "canonical_reader",
+      "to": "dataset_profile",
+      "relation": "profiled_by_data.profile.profile_dataset"
     }
   ],
   "symbols": [
@@ -229,6 +251,111 @@
       "stage": 1,
       "tests": [],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.reader.canonicalize",
+      "path": "data/reader.py",
+      "inputs": [
+        "batch",
+        "day",
+        "filename"
+      ],
+      "outputs": [
+        "canonical batch"
+      ],
+      "calls": [
+        "pyarrow.compute.cast"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [
+        "tests/test_reader.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.reader.iter_batches",
+      "path": "data/reader.py",
+      "inputs": [
+        "root",
+        "batch_size"
+      ],
+      "outputs": [
+        "day, kind, path, batch"
+      ],
+      "calls": [
+        "canonicalize"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [
+        "tests/test_reader.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.profile.count_true",
+      "path": "data/profile.py",
+      "inputs": [
+        "mask"
+      ],
+      "outputs": [
+        "count"
+      ],
+      "calls": [
+        "pyarrow.compute.sum"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.profile.profile_dataset",
+      "path": "data/profile.py",
+      "inputs": [
+        "root",
+        "batch_size"
+      ],
+      "outputs": [
+        "aggregate report"
+      ],
+      "calls": [
+        "data.reader.iter_batches",
+        "count_true"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "data.profile.main",
+      "path": "data/profile.py",
+      "inputs": [
+        "CLI"
+      ],
+      "outputs": [
+        "JSON",
+        "exit code"
+      ],
+      "calls": [
+        "profile_dataset"
+      ],
+      "dependencies": [
+        "pyarrow"
+      ],
+      "stage": 1,
+      "tests": [],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -243,7 +370,7 @@
     "status"
   ],
   "open_questions": [
-    "actual schema, counts, nulls, event timestamps and temporal split pending local audit",
+    "profile counts, cast failures, source overlap and temporal split pending; user approved logical folder date for reconstructed clean days",
     "external database type and schema",
     "exact scoring and model artifact format"
   ]
