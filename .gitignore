@@ -16,3 +16,5 @@ artifacts/
 *.npz
 *.log
 secrets/
+
+/dataset/
