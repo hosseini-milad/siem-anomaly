@@ -15,7 +15,8 @@ def count_true(mask):
 def profile_dataset(root, batch_size=8192):
     rows = 0
     nulls, invalid, labels = Counter(), Counter(), Counter()
-    for day, kind, path, batch in iter_batches(root, batch_size):
+    cast_issues = {}
+    for day, kind, path, batch in iter_batches(root, batch_size, cast_issues):
         rows += batch.num_rows
         for name, arr in zip(batch.schema.names, batch.columns):
             nulls[name] += arr.null_count
@@ -24,13 +25,16 @@ def profile_dataset(root, batch_size=8192):
             if name in ("src_port", "dst_port"):
                 invalid[name + ":range"] += count_true(pc.or_(pc.less(arr, 0), pc.greater(arr, 65535)))
             if name in BINARY:
-                invalid[name + ":binary"] += count_true(pc.invert(pc.is_in(arr, value_set=pa.array([0, 1], type=arr.type))))
+                invalid[name + ":binary"] += count_true(pc.and_(pc.is_valid(arr), pc.invert(pc.is_in(arr, value_set=pa.array([0, 1], type=arr.type)))))
             if name == "label_binary":
                 invalid["label_binary:partition_mismatch"] += count_true(pc.not_equal(arr, 0 if kind == "normal" else 1))
             if name == "type":
                 invalid["type:partition_mismatch"] += count_true(pc.not_equal(arr, kind))
         labels[kind] += batch.num_rows
-    return {"rows": rows, "partition_rows": dict(labels), "nulls": dict(nulls), "invalid": dict(invalid)}
+    for counts in cast_issues.values():
+        for name, count in counts.items():
+            invalid[name + ":invalid_integer_cast"] += count
+    return {"cast_issues_by_file": cast_issues, "rows": rows, "partition_rows": dict(labels), "nulls": dict(nulls), "invalid": dict(invalid)}
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
