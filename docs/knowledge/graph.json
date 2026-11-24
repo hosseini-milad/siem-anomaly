@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "pre_graph_reduction_design_pending_pilot",
+  "status": "stage2_2_hybrid_pilot_pending_run",
   "current_stage": 2,
   "nodes": [
     {
@@ -136,8 +136,21 @@
       "id": "pre_graph_reduction",
       "kind": "planned_module",
       "stage": 3,
-      "status": "design_pending_implementation",
-      "description": "Architecture revision requested by user: before initial similarity graph, process logical 10000-row chunks with fixed preprocessing and local unsupervised KNN-based grouping, retaining approximately 10% actual representative records (1000 per full chunk). This is distinct from later structure-aware graph compression. KNN grouping algorithm not yet specified or implemented; KNN alone is not clustering. Preserve rare/isolated behaviors via label-free novelty/coverage allocation, avoid density-only selection, retain source-to-representative mapping, multiplicity, distances and provenance; flag uncovered records rather than silently discarding them. Labels only for evaluation. Compare rare-pattern recall, coverage error, downstream PR-AUC/recall, cross-chunk neighbor recall, runtime/RAM against unreduced and random baselines. Fixed similarity threshold strictly >0.85; current ZCA provisional, mixed formula parity pending. Full chunk pair count 49,995,000 versus 499,500 for 1000 representatives; 99% reduction in graph-stage comparisons only, not end-to-end KNN cost. Use bounded block or indexed candidate search, no full dataset dense matrix. Cross-chunk representative edges must remain possible. Two successive 10% reductions would retain 1% overall; second-stage budget must be separately validated. Protect mapping and raw security data locally; do not publish raw records or identifiers. Pilot before acceptance; exact grouping, rarity budget, mapping format and cross-file coalescing pending."
+      "status": "pilot_implemented_pending_test",
+      "description": "Architecture revision requested by user: before initial similarity graph, process logical 10000-row chunks with fixed preprocessing and local unsupervised KNN-based grouping, retaining approximately 10% actual representative records (1000 per full chunk). This is distinct from later structure-aware graph compression. KNN grouping algorithm not yet specified or implemented; KNN alone is not clustering. Preserve rare/isolated behaviors via label-free novelty/coverage allocation, avoid density-only selection, retain source-to-representative mapping, multiplicity, distances and provenance; flag uncovered records rather than silently discarding them. Labels only for evaluation. Compare rare-pattern recall, coverage error, downstream PR-AUC/recall, cross-chunk neighbor recall, runtime/RAM against unreduced and random baselines. Fixed similarity threshold strictly >0.85; current ZCA provisional, mixed formula parity pending. Full chunk pair count 49,995,000 versus 499,500 for 1000 representatives; 99% reduction in graph-stage comparisons only, not end-to-end KNN cost. Use bounded block or indexed candidate search, no full dataset dense matrix. Cross-chunk representative edges must remain possible. Two successive 10% reductions would retain 1% overall; second-stage budget must be separately validated. Protect mapping and raw security data locally; do not publish raw records or identifiers. Pilot before acceptance; exact grouping, rarity budget, mapping format and cross-file coalescing pending.",
+      "path": "preprocessing/reduction.py"
+    },
+    {
+      "id": "reduction_validation",
+      "kind": "module",
+      "path": "preprocessing/reduction_validation.py",
+      "status": "pending_run"
+    },
+    {
+      "id": "reduction_report",
+      "kind": "artifact",
+      "path": "artifacts/preprocessing/reduction_report.json",
+      "status": "pending_run"
     }
   ],
   "edges": [
@@ -252,6 +265,16 @@
       "from": "pre_graph_reduction",
       "to": "graph",
       "relation": "selected_representatives"
+    },
+    {
+      "from": "pre_graph_reduction",
+      "to": "reduction_validation",
+      "relation": "evaluated_by"
+    },
+    {
+      "from": "reduction_validation",
+      "to": "reduction_report",
+      "relation": "produces"
     }
   ],
   "symbols": [
@@ -718,6 +741,111 @@
         "tests/test_similarity_validation.py"
       ],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.reduction.embedding",
+      "path": "preprocessing/reduction.py",
+      "inputs": [
+        "x,b,c"
+      ],
+      "outputs": [
+        "embedding,valid"
+      ],
+      "calls": [
+        "numpy.unique"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_reduction.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.reduction.assign",
+      "path": "preprocessing/reduction.py",
+      "inputs": [
+        "embedding,ids,block"
+      ],
+      "outputs": [
+        "nearest,scores"
+      ],
+      "calls": [
+        "numpy.argmax"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_reduction.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.reduction.select_representatives",
+      "path": "preprocessing/reduction.py",
+      "inputs": [
+        "x,b,c,ratio,seed,block,anchors"
+      ],
+      "outputs": [
+        "indices,assignment,similarity,covered,multiplicity"
+      ],
+      "calls": [
+        "preprocessing.reduction.embedding",
+        "preprocessing.reduction.assign"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 2,
+      "tests": [
+        "tests/test_reduction.py"
+      ],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.reduction_validation.metrics",
+      "path": "preprocessing/reduction_validation.py",
+      "inputs": [
+        "scores,covered,labels"
+      ],
+      "outputs": [
+        "coverage statistics"
+      ],
+      "calls": [
+        "numpy.quantile"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 2,
+      "tests": [],
+      "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "preprocessing.reduction_validation.main",
+      "path": "preprocessing/reduction_validation.py",
+      "inputs": [
+        "CLI"
+      ],
+      "outputs": [
+        "reduction_report.json"
+      ],
+      "calls": [
+        "preprocessing.similarity_validation.daily_samples",
+        "preprocessing.reduction.select_representatives",
+        "preprocessing.reduction.assign",
+        "preprocessing.reduction_validation.metrics"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 2,
+      "tests": [],
+      "status": "implemented_pending_test"
     }
   ],
   "symbol_fields": [
@@ -736,7 +864,8 @@
     "external database type and schema",
     "exact scoring and model artifact format",
     "Stage 2.1 report reviewed: 26 daily samples, no undefined cosine pairs. Raw >0.85 rate 76.63%, robust 24.94%, ZCA 18.30%, candidate mixed 16.87% (daily means). Mixed reduces cross-partition threshold eligibility versus raw; not detection accuracy. Four continuous features are constant zero in clean-reference samples; retain pending missingness/source and active-subspace review. Keep threshold 0.85 and current transform provisionally; graph pilot must evaluate sparse kNN, degree caps, candidate recall and cross-batch neighbors. No final scientific acceptance, independent temporal validation, upstream mixed-formula parity or unit test confirmation yet.",
-    "Architecture revision requested by user: before initial similarity graph, process logical 10000-row chunks with fixed preprocessing and local unsupervised KNN-based grouping, retaining approximately 10% actual representative records (1000 per full chunk). This is distinct from later structure-aware graph compression. KNN grouping algorithm not yet specified or implemented; KNN alone is not clustering. Preserve rare/isolated behaviors via label-free novelty/coverage allocation, avoid density-only selection, retain source-to-representative mapping, multiplicity, distances and provenance; flag uncovered records rather than silently discarding them. Labels only for evaluation. Compare rare-pattern recall, coverage error, downstream PR-AUC/recall, cross-chunk neighbor recall, runtime/RAM against unreduced and random baselines. Fixed similarity threshold strictly >0.85; current ZCA provisional, mixed formula parity pending. Full chunk pair count 49,995,000 versus 499,500 for 1000 representatives; 99% reduction in graph-stage comparisons only, not end-to-end KNN cost. Use bounded block or indexed candidate search, no full dataset dense matrix. Cross-chunk representative edges must remain possible. Two successive 10% reductions would retain 1% overall; second-stage budget must be separately validated. Protect mapping and raw security data locally; do not publish raw records or identifiers. Pilot before acceptance; exact grouping, rarity budget, mapping format and cross-file coalescing pending."
+    "Architecture revision requested by user: before initial similarity graph, process logical 10000-row chunks with fixed preprocessing and local unsupervised KNN-based grouping, retaining approximately 10% actual representative records (1000 per full chunk). This is distinct from later structure-aware graph compression. KNN grouping algorithm not yet specified or implemented; KNN alone is not clustering. Preserve rare/isolated behaviors via label-free novelty/coverage allocation, avoid density-only selection, retain source-to-representative mapping, multiplicity, distances and provenance; flag uncovered records rather than silently discarding them. Labels only for evaluation. Compare rare-pattern recall, coverage error, downstream PR-AUC/recall, cross-chunk neighbor recall, runtime/RAM against unreduced and random baselines. Fixed similarity threshold strictly >0.85; current ZCA provisional, mixed formula parity pending. Full chunk pair count 49,995,000 versus 499,500 for 1000 representatives; 99% reduction in graph-stage comparisons only, not end-to-end KNN cost. Use bounded block or indexed candidate search, no full dataset dense matrix. Cross-chunk representative edges must remain possible. Two successive 10% reductions would retain 1% overall; second-stage budget must be separately validated. Protect mapping and raw security data locally; do not publish raw records or identifiers. Pilot before acceptance; exact grouping, rarity budget, mapping format and cross-file coalescing pending.",
+    "Stage 2.2 pilot HSARS: 256 random anchors, block matrix assignment in weighted normalized continuous + one-hot discrete embedding (candidate mixed similarity), inverse sqrt group-size weighted coverage sampling, low anchor similarity rarity selection, then low selected-set similarity diversity fill. 10% ceiling budget; anchors included before allocating remaining budget 60% coverage, 15% rarity, remainder diversity. Zero-norm rows flagged uncovered. Final mapping and multiplicity retained in memory; pilot report only. Compare identical daily 10000 samples against random, report coverage >0.85, p05, mean, partition coverage, selection time. No raw KNN, no full pair matrix; exact upstream parity, production coalescing, rare subtype recall, cross-chunk and downstream evaluation pending. Parameters provisional; local tests not run."
   ],
   "profile_summary": {
     "rows": 48759366,
