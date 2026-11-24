@@ -2,6 +2,8 @@
 from pathlib import Path
 from datetime import date, datetime
 import re
+from config.settings import BATCH_SIZE
+import numpy as np
 from collections import Counter
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -38,13 +40,21 @@ def canonicalize(batch, day, filename, diagnostics=None):
     original = pc.cast(cols["flow_start"], pa.timestamp("us"), safe=True)
     match = re.search(r"nfcapd\.(\d{12})_", filename)
     fallback = datetime.strptime(match[1], "%Y%m%d%H%M") if match else None
-    values = [datetime.combine(day, (v or fallback).time()) if (v or fallback) is not None else None for v in original.to_pylist()]
+    valid = pc.is_valid(original).to_numpy(zero_copy_only=False)
+    # Use integer Arrow buffers to preserve microsecond precision.
+    safe = pc.fill_null(pc.cast(original, pa.int64()), 0).to_numpy(zero_copy_only=False)
+    midnight = int(np.datetime64(day.isoformat(), 'us').astype(np.int64))
+    values = midnight + np.mod(safe, 86400000000)
+    if fallback is not None:
+        offset = (fallback.hour * 3600 + fallback.minute * 60 + fallback.second) * 1000000
+        values = np.where(valid, values, midnight + offset)
+    values = pa.array(values, mask=(~valid if fallback is None else None), type=pa.int64()).cast(pa.timestamp('us'))
     cols["original_flow_start"] = original
-    cols["flow_start"] = pa.array(values, type=pa.timestamp("us"))
-    cols["date"] = pa.array([day] * batch.num_rows, type=pa.date32())
+    cols["flow_start"] = values
+    cols["date"] = pa.repeat(pa.scalar(day, type=pa.date32()), batch.num_rows)
     return pa.record_batch([cols[n] for n in sorted(cols)], names=sorted(cols))
 
-def iter_batches(root: Path, batch_size=8192, diagnostics=None):
+def iter_batches(root: Path, batch_size=BATCH_SIZE, diagnostics=None):
     """Yield partition date, kind, source path and canonical record batch."""
     if not root.is_dir():
         raise FileNotFoundError(root)
