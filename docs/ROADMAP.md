@@ -16,3 +16,5 @@ Status: stage 1 metadata audit implemented; tests and local dataset audit pendin
 Each stage requires review, acceptance criteria, tests, measured outputs and graph updates before advancing. Do not treat proposed parameters as verified results.
 
 Metadata audit received. User confirmed reconstructed clean days and approved logical folder date. Canonical reader and bounded profile implemented; local tests and profile pending. Do not advance until reviewed.
+
+Stage 1 fix: `data.reader.canonicalize` calls `data.reader.safe_integer_cast`; invalid float-to-integer values become null and `iter_batches` forwards per-file counts to `data.profile.profile_dataset`. Regression test added; local retry pending.
