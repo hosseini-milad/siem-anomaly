@@ -86,3 +86,24 @@ Run independent assignment audit (single-line command):
 `python -m scripts.evaluate_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --report artifacts/graph/sc_fagc/report_v4.json --output artifacts/graph/sc_fagc/evaluation_v4.json --threshold 0.85`
 
 The audit checks every pair within each final group for the Complete-Link threshold, reports component-count and raw-row-mass size distributions, oversized groups, singleton groups, and anchor expansion coverage. Runtime in this audit is not model runtime. Compare at least threshold 0.80, 0.85, and 0.90 on the same pilot before selecting a production value. The new adaptive anchor tests are synthetic; real-data quality and runtime are not yet validated.
+
+
+## SCRAC cubic hard-capacity design (2026-11-25)
+
+This section supersedes the earlier SCRAC raw-row-mass size-penalty description for final behavioral groups. SC-FAGC/DB-OT continues to use represented raw-row mass for transport marginals; that quantity is not the final SCRAC group capacity.
+
+Final SCRAC groups count input component representatives. The hard capacity defaults to 200 representatives, independently of each representative's raw-row mass. A candidate may join a group only when its mixed similarity to every current member is strictly greater than the Complete-Link threshold (default 0.85), the proposed member count does not exceed capacity, and its score meets the configurable acceptance threshold (default 0.75).
+
+The proposed score is:
+`Score(i,C)=0.4*S_anchor+0.3*S_mean+0.3*S_min-P(n+1)`
+where `P(k)=lambda_size*(k/capacity)^3` and lambda_size defaults to 0.20. The hard capacity is independent of the penalty and is always enforced. The score penalty uses proposed member count, never raw-row mass. Raw-row mass remains a separate reporting and SC-FAGC transport quantity.
+
+CLI controls: `--capacity 200 --lambda-size 0.20 --acceptance-threshold 0.75`. The CLI capacity controls the final SCRAC hard member-count cap; it must not be interpreted as a cap on raw flows or represented rows.
+
+Model run:
+`python -m graph.component_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --output artifacts/graph/sc_fagc/report_cubic200.json --capacity 200 --lambda-size 0.20 --acceptance-threshold 0.75 --anchor-threshold 0.85 --max-iter 500`
+
+Independent audit:
+`python -m scripts.evaluate_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/evaluation_cubic200.json --threshold 0.85 --capacity 200`
+
+The audit reports group member-count distribution, raw-row-mass distribution separately, hard-capacity violations, Complete-Link violations, and assignment coverage. Compare capacity 100/150/200 and lambda 0/0.10/0.20/0.30, using identical input and deterministic settings. Also run multiple input orders to quantify greedy-order sensitivity. Synthetic tests do not establish real-data quality; inspect runtime and peak memory on the pilot before considering production use.
