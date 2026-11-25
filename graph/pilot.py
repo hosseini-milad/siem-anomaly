@@ -38,32 +38,36 @@ def chunks(root,day_filter,batch_size=BATCH_SIZE,sample_rows=50000,temporal_bins
     data,times,files,offsets=map(np.concatenate,(data,times,files,offsets))
     order=np.argsort(times,kind="stable")
     if sample_rows is not None:
-        if sample_rows < 1 or temporal_bins < 1:
-            raise ValueError("sample_rows and temporal_bins must be positive")
-        if sample_rows % temporal_bins:
-            raise ValueError("sample_rows must be divisible by temporal_bins for equal temporal quotas")
-        quota=sample_rows//temporal_bins
-        ordered_times=times[order]
-        lower=int(ordered_times[0]); upper=int(ordered_times[-1])
-        if upper<=lower:
-            raise ValueError("cannot temporally stratify records with a single timestamp")
-        rng=np.random.default_rng(seed)
-        selected=[]
-        edges=np.linspace(lower,upper+1,temporal_bins+1,dtype=np.int64)
-        for bin_id in range(temporal_bins):
-            lo,hi=edges[bin_id],edges[bin_id+1]
-            positions=np.flatnonzero((ordered_times>=lo)&(ordered_times<hi))
-            if len(positions)<quota:
-                raise ValueError(f"temporal bin {bin_id} has {len(positions)} rows; {quota} required")
-            selected.append(rng.choice(positions,size=quota,replace=False))
-        chosen=np.sort(np.concatenate(selected))
+        chosen=temporal_sample_indices(times[order],sample_rows,temporal_bins,seed)
         order=order[chosen]
     names=np.asarray(names)
     for start in range(0,len(order),batch_size):
         ids=order[start:start+batch_size]
         yield data[ids],names[files[ids]],offsets[ids]
 
-def label_summary(degree,representative_labels,member_attack,member_total):
+def temporal_sample_indices(times,sample_rows,temporal_bins,seed):
+    """Return sorted positions from equal-duration time bins, without reading labels."""
+    times=np.asarray(times,dtype=np.int64)
+    if sample_rows<1 or temporal_bins<1 or sample_rows%temporal_bins:
+        raise ValueError("sample_rows must be positive and divisible by temporal_bins")
+    if times.size<sample_rows:
+        raise ValueError(f"only {times.size} rows available; {sample_rows} requested")
+    lower=int(times.min()); upper=int(times.max())
+    if upper<=lower:
+        raise ValueError("cannot temporally stratify records with a single timestamp")
+    quota=sample_rows//temporal_bins
+    rng=np.random.default_rng(seed)
+    edges=np.linspace(lower,upper+1,temporal_bins+1,dtype=np.int64)
+    selected=[]
+    for bin_id in range(temporal_bins):
+        positions=np.flatnonzero((times>=edges[bin_id])&(times<edges[bin_id+1]))
+        if len(positions)<quota:
+            raise ValueError(f"temporal bin {bin_id} has {len(positions)} rows; {quota} required")
+        selected.append(rng.choice(positions,size=quota,replace=False))
+    return np.sort(np.concatenate(selected))
+
+
+
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root",type=Path,default=Path("dataset/parquet"))
