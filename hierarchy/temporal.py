@@ -16,7 +16,8 @@ from pathlib import Path
 
 import numpy as np
 
-from graph.sc_fagc import mixed_similarity\nfrom preprocessing.reduction import select_representatives
+from graph.sc_fagc import mixed_similarity
+from preprocessing.reduction import select_representatives
 
 
 LEVELS = ("day", "month", "year")
