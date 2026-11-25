@@ -13,18 +13,25 @@ def test_temporal_sampler_is_reproducible_and_exact_size():
     assert np.all(np.diff(a) > 0)
 
 
-def test_temporal_sampler_uses_equal_duration_bins():
-    times = np.arange(1000, dtype=np.int64)
-    chosen = temporal_sample_indices(times, 100, 5, 42)
-    edges = np.linspace(times.min(), times.max() + 1, 6, dtype=np.int64)
-    counts = [int(((times[chosen] >= edges[i]) & (times[chosen] < edges[i + 1])).sum()) for i in range(5)]
-    assert counts == [20, 20, 20, 20, 20]
+def test_temporal_sampler_allocates_proportionally_by_temporal_bin():
+    times = np.concatenate([
+        np.arange(0, 100),
+        np.arange(100, 300),
+        np.arange(300, 700),
+        np.arange(700, 1000),
+    ]).astype(np.int64)
+    chosen = temporal_sample_indices(times, 100, 4, 42)
+    edges = np.linspace(times.min(), times.max() + 1, 5, dtype=np.int64)
+    counts = [int(((times[chosen] >= edges[i]) & (times[chosen] < edges[i + 1])).sum()) for i in range(4)]
+    assert counts == [10, 20, 40, 30]
+    assert len(chosen) == 100
 
 
-def test_temporal_sampler_rejects_sparse_temporal_bin():
-    times = np.concatenate([np.arange(0, 10), np.arange(100, 110)]).astype(np.int64)
-    with pytest.raises(ValueError, match="temporal bin"):
-        temporal_sample_indices(times, 10, 5, 7)
+def test_temporal_sampler_rejects_insufficient_rows():
+    with pytest.raises(ValueError, match="only 20 rows available"):
+        temporal_sample_indices(np.arange(20), 21, 5, 7)
+
+
 
 
 def test_temporal_sampler_requires_divisible_quota():
