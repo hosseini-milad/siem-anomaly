@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "stage_4_4_topology_audit_implemented_execution_pending",
-  "current_stage": "Stage 4.4.1 — topology-constrained SCRAC experiment",
+  "current_stage": 4.4,
   "nodes": [
     {
       "id": "data",
@@ -292,29 +292,6 @@
       "stage": 5,
       "status": "design_documented_not_implemented",
       "description": "Immutable original graph plus weighted quotient and reversible hierarchy maps; deterministic label-blind contractions with size, connectivity and distortion gates; pilot one-level prototype after topology review."
-    },
-    {
-      "id": "scrac_topology_constraint",
-      "kind": "algorithm_option",
-      "path": "graph/sc_fagc.py",
-      "stage": 4.4,
-      "status": "implemented_execution_pending",
-      "description": "Optional label-blind hard eligibility gate: candidate group membership requires the same original connected-component ID as the group's seed."
-    },
-    {
-      "id": "node_scrac_topology_input",
-      "kind": "cli_input",
-      "path": "graph/node_scrac.py",
-      "stage": 4.4,
-      "status": "implemented_execution_pending",
-      "description": "Optional --adjacency input derives connected-component IDs from original sparse adjacency and writes a local provenance artifact."
-    },
-    {
-      "id": "scrac_topology_constraint_tests",
-      "kind": "test",
-      "path": "tests/test_scrac_topology_constraint.py",
-      "stage": 4.4,
-      "status": "added_execution_pending"
     }
   ],
   "edges": [
@@ -560,24 +537,6 @@
       "to": "final_compression_hierarchy_design",
       "relation": "validation_gate_for",
       "status": "design"
-    },
-    {
-      "from": "node_scrac_topology_input",
-      "to": "scrac_topology_constraint",
-      "relation": "passes_original_connected_component_ids_to",
-      "status": "implemented"
-    },
-    {
-      "from": "scrac_topology_constraint",
-      "to": "scrac_topology_evaluator",
-      "relation": "constrained_assignment_validated_by",
-      "status": "implemented"
-    },
-    {
-      "from": "scrac_topology_constraint",
-      "to": "scrac_topology_constraint_tests",
-      "relation": "tested_by",
-      "status": "test_added"
     }
   ],
   "symbols": [
@@ -1703,78 +1662,6 @@
         "tests/test_label_mix_audit.py"
       ],
       "status": "posthoc_audit_executed"
-    },
-    {
-      "qualified_name": "graph.sc_fagc.scrac_assign",
-      "path": "graph/sc_fagc.py",
-      "inputs": [
-        "node features",
-        "SC-FAGC probabilities",
-        "anchor indices and assignments",
-        "optional original connected-component IDs"
-      ],
-      "outputs": [
-        "Complete-Link groups with optional same-original-component eligibility",
-        "assignment and topology-gate diagnostics"
-      ],
-      "calls": [],
-      "dependencies": [
-        "numpy"
-      ],
-      "stage": 4.4,
-      "status": "implemented_execution_pending",
-      "tests": [
-        "tests/test_scrac_topology_constraint.py"
-      ]
-    },
-    {
-      "qualified_name": "graph.sc_fagc.run",
-      "path": "graph/sc_fagc.py",
-      "inputs": [
-        "node features",
-        "represented raw-row mass",
-        "optional original connected-component IDs"
-      ],
-      "outputs": [
-        "SC-FAGC/SCRAC report and assignment"
-      ],
-      "calls": [
-        "graph.sc_fagc.scrac_assign"
-      ],
-      "dependencies": [
-        "numpy",
-        "scipy"
-      ],
-      "stage": 4.4,
-      "status": "implemented_execution_pending",
-      "tests": [
-        "tests/test_scrac_topology_constraint.py"
-      ]
-    },
-    {
-      "qualified_name": "graph.node_scrac.main",
-      "path": "graph/node_scrac.py",
-      "inputs": [
-        "nodes.npz",
-        "mapping directory",
-        "optional adjacency.npz",
-        "SCRAC parameters"
-      ],
-      "outputs": [
-        "node-level assignment JSON/NPZ",
-        "optional original-component provenance NPZ"
-      ],
-      "calls": [
-        "scipy.sparse.csgraph.connected_components",
-        "graph.sc_fagc.run"
-      ],
-      "dependencies": [
-        "numpy",
-        "scipy"
-      ],
-      "stage": 4.4,
-      "status": "implemented_execution_pending",
-      "tests": []
     }
   ],
   "symbol_fields": [
@@ -1806,8 +1693,7 @@
     "Zero-mass anchor columns are removed before DB-OT; row normalization and total mass are checked; effective cluster count is capped by active anchors. Regression execution pending.",
     "Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor stop, self-owned anchor rows, uniform tied weights, sparse B, log-domain weighted OT with weighted entropy and feasibility gate, group-count penalty and group opening score 0.75. Default intermediate clusters capped at 32. Real-data and regression tests pending; hybrid centrality selection and independent complete-link audit pending.",
     "Stage 4.2 node-level SCRAC pilot reviewed (2026-11-25): 5000 representative nodes, 50000 mapped raw rows from 2026-06-21 (17735 attacks, 32265 normal by post-hoc audit). SC-FAGC ran once and converged in 216 iterations; six SCRAC runs completed in 898.614 seconds total. Groups: 388-390; singletons 13-14; max member size 174-200; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for mass; source labels are not read. Baseline acceptance .75/lambda .20: 388 groups, 23 mixed, macro impurity .8055%, weighted impurity 1.996%; .78/.20: 389 groups, 23 mixed, .8020% macro and 1.954% weighted; .80/.20: 389 groups, 23 mixed, .8019% macro and 1.954% weighted. Lambda .30 produced 390 groups and 24-25 mixed groups; weighted impurity 1.968-2.000%. Nonzero mixed groups are accepted, not an optimization target. .78/.20 is a modest sensitivity candidate only, not promoted to production default. .78/.20 and .80/.20 are effectively tied. Next Stage 4.3: label-blind group-internal structural diagnostics and bounded local refinement; inspect similarity distributions, feature-wise contribution, cohesion/dispersion, medoid/centrality and order sensitivity. Reconcile prior narrative inaccuracies against the uploaded audit JSON before further comparisons.",
-    "Stage 4.3.1 structural evaluator added: scripts/evaluate_scrac_structure.py independently computes all within-group pairs using graph.sc_fagc.mixed_similarity, reports total and continuous/discrete similarity distributions, per-group medoid and weakest-link boundary members, strict Complete-Link compliance and capacity/coverage. Optional original adjacency.npz adds intra/inter group edge and weight fractions plus quotient graph. No labels or mapping files read; read-only. Synthetic test added but not executed; real pilot audit pending.",
-    "Stage 4.4.1 topology-constrained SCRAC implementation added; synthetic test and real 50k pilot execution pending. Compare with baseline 0.75/0.20 on identical graph/nodes/mappings. Hierarchy remains blocked pending review."
+    "Stage 4.3.1 structural evaluator added: scripts/evaluate_scrac_structure.py independently computes all within-group pairs using graph.sc_fagc.mixed_similarity, reports total and continuous/discrete similarity distributions, per-group medoid and weakest-link boundary members, strict Complete-Link compliance and capacity/coverage. Optional original adjacency.npz adds intra/inter group edge and weight fractions plus quotient graph. No labels or mapping files read; read-only. Synthetic test added but not executed; real pilot audit pending."
   ],
   "profile_summary": {
     "rows": 48759366,
@@ -1856,10 +1742,6 @@
     {
       "date": "2026-11-25",
       "decision": "Accept nonzero mixed groups as a legitimate outcome of unsupervised mathematical compression. Labels remain strictly post-hoc diagnostics; no class-purity target or label-guided reassignment. Keep Complete-Link >0.85 and hard capacity 200. Lambda 0.30 is not beneficial in the pilot. Acceptance 0.78/lambda 0.20 is a modest candidate only; do not change production defaults until structural diagnostics and order-stability evaluation."
-    },
-    {
-      "date": "2026-11-25",
-      "decision": "Add topology-constrained SCRAC as an opt-in experimental mode: candidate group eligibility requires the same original connected-component ID as the group's seed. Baseline behavior remains default when topology IDs are omitted. Do not promote until real-data topology, cohesion, capacity, Complete-Link, coverage, runtime and memory audits pass."
     }
   ]
 }

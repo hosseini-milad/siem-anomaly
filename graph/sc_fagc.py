@@ -229,6 +229,10 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
         labels[np.asarray(members,dtype=np.int64)]=gid
     sizes=[len(g) for g in groups]
     group_mass=[int(mass[np.asarray(g,dtype=np.int64)].sum()) for g in groups]
+    mixed_topology_groups = (
+        int(sum(np.unique(topology_labels[np.asarray(g, dtype=np.int64)]).size > 1 for g in groups))
+        if topology_labels is not None else None
+    )
     return labels,{"groups":len(groups),"group_sizes":sizes,"group_mass_raw_rows":group_mass,
       "opened_groups":len(opened),"opened_group_seed_indices":opened,
       "max_group_size":max(sizes,default=0),"capacity":int(capacity),
@@ -244,7 +248,7 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
       "topology_constraint_enabled":topology_labels is not None,
       "original_connected_component_count":int(np.unique(topology_labels).size) if topology_labels is not None else None,
       "blocked_cross_component_group_checks":int(blocked_topology_checks),
-      "groups_spanning_multiple_original_components":0,
+      "groups_spanning_multiple_original_components":mixed_topology_groups,
       "score_records":records}
 
 

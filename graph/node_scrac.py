@@ -68,6 +68,7 @@ def main() -> None:
         raise ValueError("node feature arrays are not aligned")
 
     mass, mapping_files = load_node_mass(args.mapping_dir, len(x))
+    args.output.parent.mkdir(parents=True, exist_ok=True)
     topology_labels = None
     topology_components_artifact = None
     if args.adjacency is not None:

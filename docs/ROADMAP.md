@@ -119,10 +119,3 @@ Test:
 ### Final compression and hierarchy — architecture approved for pilot design, not implemented
 
 Keep the original graph immutable. Freeze a validated SCRAC partition, construct a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create further levels only by deterministic label-blind contractions. Every parent must retain reversible child-to-parent maps and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs, source graph/version hash). A merge must pass structural compatibility, capacity and connectivity safeguards plus explicit cumulative distortion checks. Validate each level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is limited to one extra hierarchy level on the 5k pilot; full-day processing remains blocked pending topology and reconstruction results.
-
-
-## Stage 4.4.1 — topology-constrained SCRAC experiment (implementation; real-data run pending)
-
-A label-blind hard eligibility constraint is added as an opt-in experiment. When original connected-component IDs are supplied, a candidate may join a SCRAC group only if it has the same original connected-component ID as that group's seed. Complete-Link >0.85 and capacity 200 remain independently enforced. The constraint does not force connectivity between distinct original components, does not alter the original adjacency, and does not use attack/normal labels. Default behavior remains unchanged when IDs are omitted.
-
-`graph.node_scrac` accepts `--adjacency` and derives IDs from the original CSR using `scipy.sparse.csgraph.connected_components`; it writes a separate local `*_topology_components.npz` provenance artifact. Compare baseline 0.75/0.20 with this constrained run using identical nodes, mappings, seed and parameters. Synthetic regression test: `tests/test_scrac_topology_constraint.py`. Local test and real 50k execution are pending. Do not enter hierarchy implementation until the constrained report passes full mapping, capacity, Complete-Link and topology gates and its quality trade-offs are reviewed.
