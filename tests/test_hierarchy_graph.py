@@ -48,3 +48,5 @@ def test_internal_only_quotient_node_is_reported_as_isolated():
     graph = csr_matrix(np.array([[0., 1.], [1., 0.]]))
     result = build_hierarchy(graph, np.array([0, 0]))
     assert result.manifest["level_metrics"][0]["isolated_nodes"] == 1
+    assert np.isclose(result.manifest["level_metrics"][0]["total_undirected_weight"], 1.0)
+    assert result.manifest["weight_conserved"] is True
