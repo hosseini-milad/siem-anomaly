@@ -16,10 +16,13 @@ def aggregate_components(nodes_path,components_path):
     if len(component_id)!=len(x) or len(b)!=len(x) or len(cat)!=len(x): raise ValueError("node features and component_id are not aligned")
     count=len(mass)
     if count==0 or component_id.min(initial=0)<0 or component_id.max(initial=-1)>=count: raise ValueError("invalid component ids")
+    counts=np.bincount(component_id,minlength=count)
+    if len(counts)!=count or np.any(counts==0): raise ValueError("component ids must be contiguous and non-empty")
+    order=np.argsort(component_id,kind="stable"); sorted_ids=component_id[order]
+    boundaries=np.r_[0,np.flatnonzero(np.diff(sorted_ids))+1,len(order)]
     cx=np.zeros((count,x.shape[1]),dtype=np.float64); cb=np.zeros((count,b.shape[1]),dtype=b.dtype); cc=np.zeros((count,cat.shape[1]),dtype=cat.dtype)
-    for i in range(count):
-        rows=np.flatnonzero(component_id==i)
-        if not len(rows): raise ValueError(f"component {i} has no graph representatives")
+    for i,(start,end) in enumerate(zip(boundaries[:-1],boundaries[1:])):
+        rows=order[start:end]
         cx[i]=x[rows].mean(axis=0); cb[i]=_mode_rows(b[rows]); cc[i]=_mode_rows(cat[rows])
     return cx,cb,cc,mass
 
