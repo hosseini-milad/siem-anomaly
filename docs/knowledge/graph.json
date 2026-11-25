@@ -329,8 +329,8 @@
       "kind": "test",
       "path": "tests/test_hierarchy_graph.py",
       "stage": 5,
-      "status": "4_unit_tests_passed_locally",
-      "description": "Synthetic tests for weight/volume/topology preservation, reversible artifact roundtrip, cross-component base-group rejection, affinity stop gate and quotient isolates."
+      "status": "5_unit_tests_added_local_equivalent_passed",
+      "description": "Five synthetic tests cover weight/volume/topology preservation, reversible artifact roundtrip, cross-component base-group rejection, affinity stop gate, quotient isolates and stale component-ID rejection."
     },
     {
       "id": "hierarchy_artifact",
