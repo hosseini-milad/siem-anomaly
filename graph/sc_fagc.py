@@ -90,7 +90,7 @@ def build_bipartite(x,b,c,anchor_indices,k=5,block=512,threshold=.85):
             if eligible.size==0:
                 raise ValueError(f'component {i} has no qualifying anchor; run expand_anchors first')
             order=eligible[np.lexsort((anchors[eligible],dist[local,eligible]))]; active=order[:min(kk,len(order))]
-            cutoff=dist[local,order[kk]] if m>kk else dist[local,order[-1]]+1.
+            cutoff=dist[local,order[len(active)]] if len(order)>len(active) else dist[local,active[-1]]+1.
             weights=np.maximum(cutoff-dist[local,active],0.); denom=float(weights.sum())
             if denom<=1e-15: weights[:]=1.; denom=float(len(weights))
             rows.extend([i]*len(active)); cols.extend(active.tolist()); vals.extend((weights/denom).tolist())
