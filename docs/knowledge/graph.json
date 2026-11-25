@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "adaptive_anchor_expansion_implemented_validation_pending",
-  "current_stage": 4.1,
+  "status": "stage_4_2_node_level_scrac_pilot_completed_next_structural_diagnostics",
+  "current_stage": 4.2,
   "nodes": [
     {
       "id": "data",
@@ -182,9 +182,9 @@
       "id": "component_sc_fagc",
       "kind": "module",
       "path": "graph/sc_fagc.py",
-      "stage": 4.1,
-      "status": "implemented_synthetic_tests_passed_real_validation_pending",
-      "description": "SC-FAGC IRW/MM and weighted DB-OT over connected-component representatives, followed by SCRAC Complete-Link and approved size-regularized assignment; medoid anchors are a documented BKHK adaptation."
+      "stage": 4.2,
+      "status": "implemented_and_executed_on_50k_pilot",
+      "description": "Shared SC-FAGC anchor/transport stage reused once for a label-blind node-level SCRAC parameter sweep; component-level adapter remains a distinct input-unit path."
     },
     {
       "id": "component_sc_fagc_cli",
@@ -206,6 +206,54 @@
       "path": "docs/SC_FAGC.md",
       "stage": 4.1,
       "status": "implemented"
+    },
+    {
+      "id": "node_scrac",
+      "kind": "module",
+      "path": "graph/node_scrac.py",
+      "stage": 4.2,
+      "status": "implemented_and_executed_on_50k_pilot",
+      "description": "Treats each of 5000 graph representative nodes as one SCRAC member; counts raw-row mass from mapping node indices only; does not read source/partition labels during clustering."
+    },
+    {
+      "id": "scrac_sweep",
+      "kind": "module",
+      "path": "scripts/sweep_node_scrac.py",
+      "stage": 4.2,
+      "status": "implemented_and_executed_six_configurations",
+      "description": "Runs SC-FAGC once and reuses its probabilities for six SCRAC configurations."
+    },
+    {
+      "id": "label_mix_audit",
+      "kind": "module",
+      "path": "scripts/audit_scrac_label_mix.py",
+      "stage": 4.2,
+      "status": "posthoc_audit_executed",
+      "description": "Independent post-hoc attack/normal composition audit; not called by clustering."
+    },
+    {
+      "id": "scrac_sweep_report",
+      "kind": "artifact",
+      "path": "artifacts/graph/sc_fagc/scrac_sweep_50k/sweep_summary.json",
+      "stage": 4.2,
+      "status": "user_report_received_reviewed",
+      "description": "Six SCRAC runs on 5000 nodes / 50000 raw rows; shared SC-FAGC converged in 216 iterations; total runtime 898.614 seconds; all runs respected 200-member capacity."
+    },
+    {
+      "id": "scrac_audit_reports",
+      "kind": "artifact",
+      "path": "artifacts/graph/sc_fagc/scrac_sweep_50k/audit_*.json",
+      "stage": 4.2,
+      "status": "user_report_received_reviewed",
+      "description": "Six independent post-hoc audits for 2026-06-21; 17735 attack and 32265 normal raw rows; labels not used in clustering."
+    },
+    {
+      "id": "structural_diagnostics",
+      "kind": "planned_module",
+      "path": "graph/structural_diagnostics.py",
+      "stage": 4.3,
+      "status": "planned_not_implemented",
+      "description": "Label-blind within-group structural diagnostics and bounded refinement; no class-purity objective."
     }
   ],
   "edges": [
@@ -385,6 +433,42 @@
       "from": "component_sc_fagc",
       "to": "component_sc_fagc_tests",
       "relation": "validated by synthetic tests"
+    },
+    {
+      "from": "component_sc_fagc",
+      "to": "scrac_sweep",
+      "relation": "shared_SC_FAGC_probabilities_reused_by",
+      "status": "implemented_and_executed"
+    },
+    {
+      "from": "scrac_sweep",
+      "to": "node_scrac",
+      "relation": "uses_node_mass_and_node_level_assignment_logic",
+      "status": "implemented_and_executed"
+    },
+    {
+      "from": "scrac_sweep",
+      "to": "label_mix_audit",
+      "relation": "assignment_report_audited_posthoc",
+      "status": "implemented_and_executed"
+    },
+    {
+      "from": "label_mix_audit",
+      "to": "scrac_audit_reports",
+      "relation": "produces",
+      "status": "reviewed"
+    },
+    {
+      "from": "scrac_sweep",
+      "to": "scrac_sweep_report",
+      "relation": "produces",
+      "status": "reviewed"
+    },
+    {
+      "from": "scrac_sweep",
+      "to": "structural_diagnostics",
+      "relation": "group_assignments_input_for_label_blind_diagnostics",
+      "status": "planned"
     }
   ],
   "symbols": [
@@ -1417,6 +1501,99 @@
         "tests/test_sc_fagc.py"
       ],
       "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.node_scrac.load_node_mass",
+      "path": "graph/node_scrac.py",
+      "inputs": [
+        "mapping directory",
+        "number of graph representative nodes"
+      ],
+      "outputs": [
+        "raw-row mass per representative node"
+      ],
+      "calls": [],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.2,
+      "tests": [],
+      "status": "executed_on_pilot"
+    },
+    {
+      "qualified_name": "graph.node_scrac.main",
+      "path": "graph/node_scrac.py",
+      "inputs": [
+        "nodes.npz",
+        "mapping directory",
+        "SCRAC parameters"
+      ],
+      "outputs": [
+        "node-level assignment JSON/NPZ",
+        "identity input-components mapping"
+      ],
+      "calls": [
+        "graph.node_scrac.load_node_mass",
+        "graph.sc_fagc.run"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.2,
+      "tests": [],
+      "status": "executed_on_50k_pilot"
+    },
+    {
+      "qualified_name": "scripts.sweep_node_scrac.run_sweep",
+      "path": "scripts/sweep_node_scrac.py",
+      "inputs": [
+        "nodes.npz",
+        "mapping directory",
+        "acceptance threshold grid",
+        "lambda grid"
+      ],
+      "outputs": [
+        "six SCRAC reports",
+        "sweep_summary.json"
+      ],
+      "calls": [
+        "graph.node_scrac.load_node_mass",
+        "graph.sc_fagc.select_anchor_indices",
+        "graph.sc_fagc.expand_anchors",
+        "graph.sc_fagc.build_bipartite",
+        "graph.sc_fagc.sc_fagc",
+        "graph.sc_fagc.scrac_assign"
+      ],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 4.2,
+      "tests": [
+        "tests/test_sweep_node_scrac.py"
+      ],
+      "status": "executed_six_configurations"
+    },
+    {
+      "qualified_name": "scripts.audit_scrac_label_mix.audit",
+      "path": "scripts/audit_scrac_label_mix.py",
+      "inputs": [
+        "mapping files",
+        "identity components artifact",
+        "assignment report"
+      ],
+      "outputs": [
+        "per-group attack/normal posthoc counts and aggregate impurity statistics"
+      ],
+      "calls": [],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.2,
+      "tests": [
+        "tests/test_label_mix_audit.py"
+      ],
+      "status": "posthoc_audit_executed"
     }
   ],
   "symbol_fields": [
@@ -1446,7 +1623,8 @@
     "Chronological 50k pilot reviewed: exact/indexed 5000 nodes, 39929 union candidates each, 34253/34254 edges, 24800 cross-chunk edges each, zero isolates, coverage 1, cap20, min similarity .8505345873. Graph seconds 4.975752/1.018060 (4.89x); total 6.704639/2.670917 (2.51x). Both reports contain zero attack members and representatives by partition label; no mixed-class validation. Indexed provisionally preferred, edge-set recall not established by counts. Full-day run and memory validation pending; no code changes.",
     "Stage 3 operational acceptance on two full-day runs; scientific ANN recall, peak RAM and independent validation pending. Stage 4 implemented graph/components.py: validate CSR symmetry, weights, degree and no loops; scipy connected_components including singletons; mapping_stats verifies multiplicity and partition labels with portable separators; analyze computes component size, raw mass, edges, density, edge mean and exact valid representative all-pair mixed mean via grouped sums/counts, coverage and posthoc label composition. No dense pair matrix, no graph modification. CLI reads existing graph artifacts and writes components.npz and aggregate report.json. Tests added, local execution pending. Stage 5 blocked until component review.",
     "Zero-mass anchor columns are removed before DB-OT; row normalization and total mass are checked; effective cluster count is capped by active anchors. Regression execution pending.",
-    "Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor stop, self-owned anchor rows, uniform tied weights, sparse B, log-domain weighted OT with weighted entropy and feasibility gate, group-count penalty and group opening score 0.75. Default intermediate clusters capped at 32. Real-data and regression tests pending; hybrid centrality selection and independent complete-link audit pending."
+    "Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor stop, self-owned anchor rows, uniform tied weights, sparse B, log-domain weighted OT with weighted entropy and feasibility gate, group-count penalty and group opening score 0.75. Default intermediate clusters capped at 32. Real-data and regression tests pending; hybrid centrality selection and independent complete-link audit pending.",
+    "Stage 4.2 node-level SCRAC pilot reviewed (2026-11-25): 5000 representative nodes, 50000 mapped raw rows from 2026-06-21 (17735 attacks, 32265 normal by post-hoc audit). SC-FAGC ran once and converged in 216 iterations; six SCRAC runs completed in 898.614 seconds total. Groups: 388-390; singletons 13-14; max member size 174-200; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for mass; source labels are not read. Baseline acceptance .75/lambda .20: 388 groups, 23 mixed, macro impurity .8055%, weighted impurity 1.996%; .78/.20: 389 groups, 23 mixed, .8020% macro and 1.954% weighted; .80/.20: 389 groups, 23 mixed, .8019% macro and 1.954% weighted. Lambda .30 produced 390 groups and 24-25 mixed groups; weighted impurity 1.968-2.000%. Nonzero mixed groups are accepted, not an optimization target. .78/.20 is a modest sensitivity candidate only, not promoted to production default. .78/.20 and .80/.20 are effectively tied. Next Stage 4.3: label-blind group-internal structural diagnostics and bounded local refinement; inspect similarity distributions, feature-wise contribution, cohesion/dispersion, medoid/centrality and order sensitivity. Reconcile prior narrative inaccuracies against the uploaded audit JSON before further comparisons."
   ],
   "profile_summary": {
     "rows": 48759366,
@@ -1491,6 +1669,10 @@
     {
       "date": "2026-11-25",
       "decision": "Initial anchor ratio (default 5%) is seed budget only; dynamically create a new anchor when no existing anchor has mixed similarity strictly greater than configurable threshold (default 0.85). Prefer qualifying existing anchors; sparse B rows sum to one; anchor self-assignment; log expansion reasons and coverage."
+    },
+    {
+      "date": "2026-11-25",
+      "decision": "Accept nonzero mixed groups as a legitimate outcome of unsupervised mathematical compression. Labels remain strictly post-hoc diagnostics; no class-purity target or label-guided reassignment. Keep Complete-Link >0.85 and hard capacity 200. Lambda 0.30 is not beneficial in the pilot. Acceptance 0.78/lambda 0.20 is a modest candidate only; do not change production defaults until structural diagnostics and order-stability evaluation."
     }
   ]
 }
