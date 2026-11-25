@@ -122,3 +122,15 @@ Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor st
 ## Adaptive anchor expansion (2026-11-25)
 
 The initial 5% anchor budget is a starting seed, not a cap. Each component is compared against current anchors using the configured mixed-similarity threshold (default 0.85). If at least one existing anchor has similarity strictly greater than the threshold, the component is assigned to its nearest qualifying anchors (up to anchor-k). Otherwise the component becomes a new anchor and can represent later components. The bipartite matrix is sparse; each row sums to one and anchor rows self-assign. Reports distinguish initial coverage, components requiring new anchors, number of newly created anchors, final anchor count, and each creation reason. Threshold is an experimental hyperparameter and must be evaluated separately from SCRAC Complete-Link.
+
+
+## Post-hoc class-mixture audit (2026-11-25)
+
+- `scripts/audit_scrac_label_mix.py` is an evaluation-only consumer; it is not imported by graph construction, representative selection, SC-FAGC, or SCRAC.
+- Inputs: pilot `mapping_*.npz` files (raw row -> graph node and source partition), `components.npz` (graph node -> initial component and raw_rows/attack_rows), and final SCRAC JSON assignment (initial component -> final group).
+- Counts attack/normal raw rows for each final group; reports class percentages, mixed/pure groups, macro impurity and raw-row-weighted impurity.
+- Validates mapping-derived raw-row totals against components.raw_rows and reconstructed attack totals against components.attack_rows. Mismatch fails closed.
+- An attack-only source day is explicitly flagged; apparent all-attack purity must not be interpreted as clustering performance.
+- Labels are never used in model fitting or assignment. Original mapping artifacts are required; nodes.npz and components.npz alone do not preserve per-raw-row source partition.
+- Run: `python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot --components artifacts/graph/components/components.npz --assignment-report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/label_mix_cubic200.json`.
+- Validation status: synthetic tests added; local execution on the user's real pilot artifacts is pending.
