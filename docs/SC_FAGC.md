@@ -143,3 +143,20 @@ Then run post-hoc label-mix audit:
 `python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot_50k --components artifacts/graph/components_50k/components.npz --assignment-report artifacts/graph/sc_fagc/report_50k_cubic200.json --output artifacts/graph/sc_fagc/label_mix_50k_cubic200.json`
 
 The full-day run is a separate later experiment using `--full-day --backend indexed`; it is not part of the 50k pilot. The 61.4/38.6 ratio is a population reference from the complete day, not a sampling constraint. Never use attack/normal labels to select pilot rows or build the graph.
+
+
+## Controlled, label-blind SCRAC sensitivity sweep
+
+The current 50k pilot is not treated as a classification task. Mixed attack/normal groups are a post-hoc diagnostic only; zero mixed groups is not an optimization target. Keep Complete-Link at 0.85 and hard member capacity at 200. Do not tune against labels.
+
+`scripts/sweep_node_scrac.py` computes SC-FAGC anchors and DB-OT once, then runs SCRAC over a small predeclared grid: acceptance thresholds 0.75/0.78/0.80 and cubic size penalties 0.20/0.30. This avoids repeating the expensive SC-FAGC stage. The clustering process reads mapping `node` indices only for raw-row mass; it does not read `source` or attack/normal labels.
+
+Run from repository root:
+
+`python -m scripts.sweep_node_scrac --nodes artifacts/graph/pilot_50k/nodes.npz --mapping-dir artifacts/graph/pilot_50k --output-dir artifacts/graph/sc_fagc/scrac_sweep_50k --capacity 200 --anchor-threshold 0.85 --complete-link-threshold 0.85 --acceptance-thresholds 0.75,0.78,0.80 --lambdas 0.20,0.30 --max-iter 500 --sinkhorn-iter 2000`
+
+Then run post-hoc audits for each configuration (the audit is separate from clustering):
+
+`python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot_50k --components artifacts/graph/sc_fagc/scrac_sweep_50k/input_components_identity.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p750_lambda_0p200.json --output artifacts/graph/sc_fagc/scrac_sweep_50k/audit_0p750_0p200.json`
+
+Repeat the audit command with each report filename. Compare group count, singleton count, size distribution, weighted impurity, mixed-group count, max impurity, and runtime. Prefer a modest improvement only when it does not cause disproportionate fragmentation or runtime growth. The script's score-threshold sweep is a sensitivity experiment, not a claim that mixed groups will disappear.
