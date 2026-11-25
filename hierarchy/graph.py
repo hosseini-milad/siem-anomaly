@@ -121,10 +121,17 @@ def build_hierarchy(adjacency: csr_matrix, base_assignment: np.ndarray,
     if max_levels < 1 or not 0 <= min_affinity <= 1:
         raise ValueError("max_levels must be >=1 and min_affinity in [0,1]")
     labels = _labels(base_assignment, g.shape[0], "base_assignment")
+    n_graph_cc, graph_cc = connected_components(g, directed=False)
     if original_component_ids is None:
-        _, cc = connected_components(g, directed=False)
+        cc = graph_cc.astype(np.int64, copy=False)
     else:
         cc = _labels(original_component_ids, g.shape[0], "original_component_ids")
+        # Reject stale/coarse component artifacts: supplied IDs must encode
+        # exactly the same connected-component partition as the current graph.
+        if len(np.unique(cc)) != n_graph_cc or any(
+            np.unique(graph_cc[cc == cid]).size != 1 for cid in np.unique(cc)
+        ):
+            raise ValueError("original_component_ids do not match graph connected components")
     n_base = int(labels.max()) + 1
     base_cc = np.empty(n_base, dtype=np.int64)
     base_sizes = np.bincount(labels, minlength=n_base).astype(np.int64)
