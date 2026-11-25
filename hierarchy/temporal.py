@@ -16,7 +16,7 @@ from pathlib import Path
 
 import numpy as np
 
-from graph.sc_fagc import mixed_similarity
+from graph.sc_fagc import mixed_similarity\nfrom preprocessing.reduction import select_representatives
 
 
 LEVELS = ("day", "month", "year")
@@ -68,7 +68,7 @@ def _aggregate_descriptors(x, b, c, mass, groups):
             np.asarray(out_mass, dtype=np.float64))
 
 
-def _complete_link_groups(x, b, c, threshold, max_child_components, block_size):
+def _complete_link_groups(x, b, c, threshold, max_child_components, block_size, priority_indices=None):
     """Deterministic greedy complete-link grouping; no labels are accepted."""
     n = len(x)
     if n == 1:
@@ -85,7 +85,7 @@ def _complete_link_groups(x, b, c, threshold, max_child_components, block_size):
             eligible = np.flatnonzero(row[i + 1:] > threshold) + i + 1
             for j in eligible:
                 candidates.append((float(row[j]), i, int(j)))
-    candidates.sort(key=lambda z: (-z[0], z[1], z[2]))
+    priority = np.zeros(n, dtype=bool)\n    if priority_indices is not None:\n        priority[np.asarray(priority_indices, dtype=np.int64)] = True\n    candidates.sort(key=lambda z: (-(int(priority[z[1]]) + int(priority[z[2]])), -z[0], z[1], z[2]))
     parent = np.arange(n, dtype=np.int64)
     members = {i: [i] for i in range(n)}
     totals = np.ones(n, dtype=np.int64)
@@ -140,9 +140,18 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
         records = []
         for key in sorted(np.unique(parent_keys)):
             idx = np.flatnonzero(parent_keys == key)
+            # Apply the established hybrid representative selector at each
+            # temporal parent period. Selected components receive merge priority,
+            # but every component remains in the grouping and is conserved.
+            selected = select_representatives(
+                current["x"][idx], current["b"][idx], current["c"][idx],
+                ratio=0.10, seed=42)
             groups, stats = _complete_link_groups(
                 current["x"][idx], current["b"][idx], current["c"][idx],
-                similarity_threshold, max_child_components, block_size)
+                similarity_threshold, max_child_components, block_size,
+                priority_indices=selected["indices"])
+            stats["priority_representatives"] = int(len(selected["indices"]))
+            stats["priority_representative_ratio"] = 0.10
             gx, gb, gc, gm = _aggregate_descriptors(
                 current["x"][idx], current["b"][idx], current["c"][idx], current["mass"][idx], groups)
             for local_id, members in enumerate(groups):
