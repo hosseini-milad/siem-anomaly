@@ -73,3 +73,16 @@ hard capacity guarantee for final components.
 ## Adaptive anchor expansion (2026-11-25)
 
 The initial 5% anchor budget is a starting seed, not a cap. Each component is compared against current anchors using the configured mixed-similarity threshold (default 0.85). If at least one existing anchor has similarity strictly greater than the threshold, the component is assigned to its nearest qualifying anchors (up to anchor-k). Otherwise the component becomes a new anchor and can represent later components. The bipartite matrix is sparse; each row sums to one and anchor rows self-assign. Reports distinguish initial coverage, components requiring new anchors, number of newly created anchors, final anchor count, and each creation reason. Threshold is an experimental hyperparameter and must be evaluated separately from SCRAC Complete-Link.
+
+
+## Evaluation run for adaptive anchors
+
+The initial anchor budget defaults to 5% but is not a cap. Dynamic expansion adds a component as a new anchor only when its best similarity to all current anchors is not strictly above `--anchor-threshold` (default 0.85). Existing qualifying anchors always take precedence. `--anchor-threshold` is distinct from the final SCRAC Complete-Link threshold and should be tuned on held-out data.
+
+Run the model (single-line command):
+`python -m graph.component_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --output artifacts/graph/sc_fagc/report_v4.json --capacity 100 --anchor-threshold 0.85 --max-iter 500`
+
+Run independent assignment audit (single-line command):
+`python -m scripts.evaluate_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --report artifacts/graph/sc_fagc/report_v4.json --output artifacts/graph/sc_fagc/evaluation_v4.json --threshold 0.85`
+
+The audit checks every pair within each final group for the Complete-Link threshold, reports component-count and raw-row-mass size distributions, oversized groups, singleton groups, and anchor expansion coverage. Runtime in this audit is not model runtime. Compare at least threshold 0.80, 0.85, and 0.90 on the same pilot before selecting a production value. The new adaptive anchor tests are synthetic; real-data quality and runtime are not yet validated.
