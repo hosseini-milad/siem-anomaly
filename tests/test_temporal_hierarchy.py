@@ -49,13 +49,13 @@ def test_complete_link_prevents_transitive_chain_merge():
     assert len(rows) == 2
 
 
-def test_capacity_is_respected_and_singletons_remain():
+def test_child_component_capacity_is_respected_and_singletons_remain():
     x, b, c, mass, period, chunk = atoms()
     result = build_temporal_hierarchy(x, b, c, mass, period, chunk,
-                                      similarity_threshold=.85, max_component_mass=15)
+                                      similarity_threshold=.85, max_child_components=1)
     for level in ("day", "month", "year"):
         for row in result["levels"][level]:
-            assert row["represented_raw_rows"] <= 15
+            assert row["child_components"] <= 1
 
 
 def test_rejects_invalid_period_and_unaligned_inputs():
