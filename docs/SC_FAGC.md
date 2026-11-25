@@ -21,9 +21,14 @@ generalized Sinkhorn scaling.
 
 Transport row marginals are weighted by each component's represented raw-row
 count. This is a project-specific extension so large components contribute
-proportionally to cluster mass. Final assignment keeps components indivisible
-and uses a default maximum group mass of 100 raw rows. Components whose own
-mass exceeds 100 are reported as oversized standalone components.
+proportionally to cluster mass. The final assignment retains the SCRAC
+Complete-Link gate: a component may join a group only when its minimum mixed
+similarity to every current member is strictly greater than 0.85. Candidate
+groups are ranked by 0.4*S_anchor + 0.3*S_mean + 0.3*S_min - P(new_raw_mass),
+where P(n)=0.02*ln(1+n/50)+0.10*(max(0,n-100)/100)^2. Groups above 100
+represented raw rows become progressively less attractive, rather than being
+forbidden by a hard capacity. Components that cannot join an existing group
+are retained as standalone groups; no component is discarded.
 
 ## Anchor and descriptor adaptation
 The paper uses BKHK for anchor generation and N2HI for initialization. This
@@ -55,8 +60,8 @@ Run: python -m pytest tests/test_sc_fagc.py -q
 
 ## Validation status and limitations
 Synthetic tests cover bipartite row normalization, weighted DB-OT bounds,
-capacity assignment, oversized-component handling, descriptor aggregation,
-and end-to-end execution. They do not establish detection quality on real data.
+the approved SCRAC size penalty, Complete-Link thresholding, total component
+mapping, descriptor aggregation, and end-to-end execution. They do not establish detection quality on real data.
 Real-data evaluation must compare SC-FAGC with SCRAC-only and no-size-penalty
 baselines, reporting component-size distribution, oversized fraction, graph
 coverage, objective history, runtime, peak memory, and downstream anomaly
