@@ -68,7 +68,7 @@ def _aggregate_descriptors(x, b, c, mass, groups):
             np.asarray(out_mass, dtype=np.float64))
 
 
-def _complete_link_groups(x, b, c, mass, threshold, capacity, block_size):
+def _complete_link_groups(x, b, c, threshold, max_child_components, block_size):
     """Deterministic greedy complete-link grouping; no labels are accepted."""
     n = len(x)
     if n == 1:
@@ -88,13 +88,13 @@ def _complete_link_groups(x, b, c, mass, threshold, capacity, block_size):
     candidates.sort(key=lambda z: (-z[0], z[1], z[2]))
     parent = np.arange(n, dtype=np.int64)
     members = {i: [i] for i in range(n)}
-    totals = mass.astype(np.float64).copy()
+    totals = np.ones(n, dtype=np.int64)
     # Complete-link is checked against all cross-cluster pairs. Candidate edges
     # only propose merges; they never bypass the all-pairs constraint.
     accepted = 0
     for score, i, j in candidates:
         ri, rj = int(parent[i]), int(parent[j])
-        if ri == rj or totals[ri] + totals[rj] > capacity:
+        if ri == rj or totals[ri] + totals[rj] > max_child_components:
             continue
         left, right = members[ri], members[rj]
         cross_min = 1.0
@@ -119,12 +119,12 @@ def _complete_link_groups(x, b, c, mass, threshold, capacity, block_size):
 
 
 def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
-                             similarity_threshold=0.85, max_component_mass=200,
+                             similarity_threshold=0.85, max_child_components=200,
                              block_size=128):
     """Build daily, monthly and yearly super-components from chunk components."""
     started = time.perf_counter()
     x, b, c, mass, period, chunk_id = _validate_atoms(x, b, c, mass, period, chunk_id)
-    if not -1 <= similarity_threshold <= 1 or max_component_mass <= 0 or block_size <= 0:
+    if not -1 <= similarity_threshold <= 1 or max_child_components <= 0 or block_size <= 0:
         raise ValueError("invalid threshold, capacity or block size")
 
     current = {"x": x, "b": b, "c": c, "mass": mass,
@@ -141,7 +141,7 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
             idx = np.flatnonzero(parent_keys == key)
             groups, stats = _complete_link_groups(
                 current["x"][idx], current["b"][idx], current["c"][idx],
-                current["mass"][idx], similarity_threshold, max_component_mass, block_size)
+                similarity_threshold, max_child_components, block_size)
             gx, gb, gc, gm = _aggregate_descriptors(
                 current["x"][idx], current["b"][idx], current["c"][idx], current["mass"][idx], groups)
             for local_id, members in enumerate(groups):
@@ -179,14 +179,14 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
         "levels": ["chunk_components_input", "daily_supercomponents", "monthly_supercomponents", "yearly_supercomponents"],
         "similarity": "mixed_similarity with strict complete-link across every pair of child components",
         "similarity_threshold_strictly_greater_than": float(similarity_threshold),
-        "max_represented_raw_rows_per_supercomponent": int(max_component_mass),
+        "max_child_components_per_supercomponent": int(max_child_components),
         "daily_chunk_count": int(len(np.unique(chunk_id))),
         "input_component_count": int(len(x)),
         "runtime_seconds": round(time.perf_counter() - started, 6),
         "caveats": [
             "The input must contain component descriptors already computed independently per 10,000-row chunk.",
             "This module does not itself read Parquet or run the chunk-level graph/SCRAC stage.",
-            "Capacity is measured in represented raw rows; indivisible child components above capacity remain singleton supercomponents.",
+            "Capacity is measured as the number of immediate child components, not raw-row mass; mass is retained separately as a descriptor weight.",
             "Centroid/mode descriptors are summaries; the Complete-Link gate uses the original child descriptors during each period merge."
         ]
     }
@@ -198,14 +198,14 @@ def main():
     p.add_argument("--atoms", type=Path, required=True, help="NPZ: x,b,c,mass,period,chunk_id")
     p.add_argument("--output", type=Path, required=True)
     p.add_argument("--threshold", type=float, default=0.85)
-    p.add_argument("--capacity", type=int, default=200)
+    p.add_argument("--max-child-components", type=int, default=200)
     p.add_argument("--block-size", type=int, default=128)
     a = p.parse_args()
     with np.load(a.atoms, allow_pickle=False) as f:
         result = build_temporal_hierarchy(f["x"], f["b"], f["c"], f["mass"],
                                           f["period"], f["chunk_id"],
                                           similarity_threshold=a.threshold,
-                                          max_component_mass=a.capacity,
+                                          max_child_components=a.max_child_components,
                                           block_size=a.block_size)
     a.output.parent.mkdir(parents=True, exist_ok=True)
     a.output.write_text(json.dumps(result, indent=2, allow_nan=False), encoding="utf-8")
