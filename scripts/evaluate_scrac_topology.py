@@ -59,15 +59,20 @@ def _validate_graph(graph: csr_matrix) -> csr_matrix:
 
 def _spectral(g: csr_matrix, k: int) -> dict:
     n = g.shape[0]
-    if n < 3 or k < 1:
-        return {"status": "skipped", "reason": "graph too small or spectral_k < 1",
+    if n < 2 or k < 1:
+        return {"status": "skipped", "reason": "graph has fewer than two nodes or spectral_k < 1",
                 "eigenvalues": [], "zero_eigenvalue_count": None}
-    kk = min(int(k), n - 2)
     ln = laplacian(g, normed=True).tocsr()
     try:
         if n <= 512:
+            # Dense symmetric eigensolver supports k == n, including a
+            # two-node quotient graph. Do not silently request zero values
+            # for n=2 or n=3.
+            kk = min(int(k), n)
             vals = np.linalg.eigvalsh(ln.toarray())[:kk]
         else:
+            # ARPACK requires k < n for a sparse matrix.
+            kk = min(int(k), n - 1)
             vals = eigsh(ln, k=kk, which="SM", return_eigenvectors=False,
                          tol=1e-5, maxiter=max(5000, n * 2))
             vals = np.sort(np.real(vals))
