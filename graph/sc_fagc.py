@@ -107,9 +107,10 @@ def capacity_assign(probabilities,component_mass,max_size=100):
         pref=np.argsort(-P[i],kind="stable"); candidates=[j for j in pref if j<target and loads[j]+mass[i]<=max_size]
         if not candidates: loads=np.append(loads,0); candidates=[len(loads)-1]
         j=int(candidates[0]); labels[i]=j; loads[j]+=mass[i]
+    assignable_loads=loads.copy()
     for i in oversized: labels[i]=len(loads); loads=np.append(loads,mass[i])
     return labels,{"cluster_count":int(len(loads)),"cluster_mass":loads.tolist(),"max_cluster_mass":int(loads.max(initial=0)),
-                   "oversized_component_indices":oversized,"capacity_respected_for_assignable_components":bool(np.all(loads[:target]<=max_size))}
+                   "oversized_component_indices":oversized,"capacity_respected_for_assignable_components":bool(np.all(assignable_loads<=max_size))}
 
 def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
