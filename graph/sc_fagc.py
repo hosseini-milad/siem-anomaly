@@ -224,9 +224,10 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     n_anchors=min(n,max(int(n_anchors or np.ceil(.05*n)),n_clusters))
     initial_anchors=select_anchor_indices(x,b,c,n_anchors,seed)
     anchors,anchor_expansion=expand_anchors(x,b,c,initial_anchors,threshold=anchor_threshold)
+    initial_selected_count=len(initial_anchors); expanded_selected_count=len(anchors)
     B=build_bipartite(x,b,c,anchors,k=anchor_k,threshold=anchor_threshold)
     anchor_mass=np.asarray(B.T@mass).ravel()
-    requested_anchors=n_anchors; selected_anchors=len(anchors); requested_clusters=n_clusters
+    requested_anchors=n_anchors; selected_anchors=expanded_selected_count; requested_clusters=n_clusters
     active=anchor_mass>0
     if not np.any(active): raise ValueError("no positive-mass anchors")
     B=B[:,active].tocsr(); anchors=anchors[active]; anchor_mass=anchor_mass[active]
@@ -238,7 +239,7 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     if not opt['converged']:
         return {'components':n,'anchors':len(anchors),'anchors_requested':requested_anchors,'zero_mass_anchors_removed':selected_anchors-len(anchors),'redundant_anchors_not_selected':requested_anchors-selected_anchors,'optimization':opt,'status':'optimization_not_validated','assignment':list(range(n)),'probabilities':np.asarray(B@U).tolist(),'anchor_indices':anchors.tolist()}
     probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U)
-    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":len(initial_anchors),"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_anchors_not_selected":requested_anchors-selected_anchors,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
+    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":initial_selected_count,"anchors_after_expansion":expanded_selected_count,"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_initial_anchors_not_selected":requested_anchors-initial_selected_count,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
             "component_mass_max":int(mass.max()),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
             "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),
