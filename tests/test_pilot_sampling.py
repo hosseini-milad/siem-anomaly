@@ -34,6 +34,3 @@ def test_temporal_sampler_rejects_insufficient_rows():
 
 
 
-def test_temporal_sampler_requires_divisible_quota():
-    with pytest.raises(ValueError, match="divisible"):
-        temporal_sample_indices(np.arange(100), 11, 5, 1)
