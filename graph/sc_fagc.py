@@ -114,7 +114,9 @@ def capacity_assign(probabilities,component_mass,max_size=100):
 
 def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
-    n_clusters=n_clusters or max(1,int(np.ceil(mass.sum()/max_component_group_mass)))
+    # Cluster count is a controllable SC-FAGC hyperparameter; sqrt(n) is only
+    # a bounded default heuristic. Final raw-mass capacity is enforced below.
+    n_clusters=n_clusters or min(n,max(1,int(np.ceil(np.sqrt(n)))))
     if n_clusters>n: raise ValueError("n_clusters cannot exceed number of components")
     n_anchors=min(n,max(int(n_anchors or np.ceil(np.sqrt(n))),n_clusters))
     anchors=select_anchor_indices(x,b,c,n_anchors,seed); B=build_bipartite(x,b,c,anchors,k=anchor_k)
