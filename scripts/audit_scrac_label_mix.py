@@ -39,9 +39,6 @@ def audit(mapping_dir, components_path, assignment_report, output_path=None):
     if np.any(component_raw_rows < 0):
         raise ValueError("negative raw_rows in components artifact")
 
-    expected_per_component = np.bincount(
-        node_to_component, weights=np.ones(n_nodes, dtype=np.int64), minlength=n_components
-    )
     # Raw rows represented by each graph node are not stored in nodes.npz.
     # The components artifact stores the sum per connected component, so compare
     # mapping-derived raw-row totals to these values after aggregation below.
@@ -71,6 +68,8 @@ def audit(mapping_dir, components_path, assignment_report, output_path=None):
             group = assignment[comp]
             np.add.at(total_attack, group, labels)
             np.add.at(total_normal, group, 1 - labels)
+            source_partition_counts["attacks"] += int(labels.sum())
+            source_partition_counts["normal"] += int(len(labels) - labels.sum())
             np.add.at(mapped_rows_per_node, node, 1)
             mapped_total += len(node)
             source_values = np.asarray(f["source"]).astype(str)
