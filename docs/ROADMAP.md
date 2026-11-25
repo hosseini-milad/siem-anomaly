@@ -86,3 +86,18 @@ Post-hoc audit only: 17735 attack rows and 32265 normal rows. Baseline 0.75/0.20
 Planned, not implemented. First measure per-group within-similarity distributions (minimum, p05, median, mean, p95), independent Complete-Link compliance, feature-wise similarity contributions, cohesion/dispersion, medoid/centrality, boundary members, and pre/post graph structural preservation. Test order sensitivity with multiple deterministic permutations and label-free partition agreement. Only then design bounded local refinement preserving capacity and Complete-Link while improving a graph-structure objective. Keep baseline outputs immutable and report runtime/memory.
 
 Acceptance gates: full node coverage; raw-row mass conservation; capacity <=200; strict within-group pair similarity >0.85; no label access; graph structure preservation measured; runtime and memory reported. Full-day run and independent day replication remain pending.
+
+
+## Stage 4.3.1 — structural quality audit (implemented; execution pending)
+
+Added a read-only, label-blind evaluator at `scripts/evaluate_scrac_structure.py` with a synthetic test at `tests/test_scrac_structure.py`. It independently checks all within-group pairs against strict Complete-Link >0.85; reports pairwise mixed similarity and separate continuous/discrete contributions; computes per-group medoid, weakest-link boundary members and cohesion summaries; validates full assignment coverage and hard member capacity. When the original `adjacency.npz` is supplied, it also reports intra-/inter-group edge and weight fractions and the inter-group quotient graph.
+
+No mapping files or attack/normal labels are read. The evaluator is read-only and does not alter SCRAC output. Test and real-pilot execution have not yet been run by the user.
+
+Run:
+`python -m pytest tests/test_scrac_structure.py -q`
+
+Run candidate 0.78/0.20:
+`python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
+
+Run baseline 0.75/0.20 with the same command and output path `structural_0p750_0p200.json`. Review both reports before implementing any structural refinement.
