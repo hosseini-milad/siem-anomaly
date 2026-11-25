@@ -50,3 +50,9 @@ def test_internal_only_quotient_node_is_reported_as_isolated():
     assert result.manifest["level_metrics"][0]["isolated_nodes"] == 1
     assert np.isclose(result.manifest["level_metrics"][0]["total_undirected_weight"], 1.0)
     assert result.manifest["weight_conserved"] is True
+
+def test_rejects_stale_component_ids():
+    graph = fixture_graph()
+    # Claim all nodes belong to one component although the graph has two.
+    with pytest.raises(ValueError, match="do not match graph"):
+        build_hierarchy(graph, np.arange(6), np.zeros(6, dtype=np.int64))
