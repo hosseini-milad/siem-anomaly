@@ -26,21 +26,52 @@ def mixed_similarity(xa,ba,ca,xb,bb,cb):
     return np.clip(.6*cosine+.4*categorical,-1.,1.)
 
 def select_anchor_indices(x,b,c,n_anchors,seed=42):
-    """Deterministic farthest-first medoids; BKHK is a replaceable paper component."""
+    """Deterministic farthest-first initial anchors; n_anchors is a seed budget only."""
     n=len(x); m=min(int(n_anchors),n)
     if m<1: raise ValueError("n_anchors must be positive")
     center=np.mean(x,axis=0); first=int(np.argmin(np.linalg.norm(x-center,axis=1)))
-    chosen=[first]; best=np.full(n,-np.inf,dtype=np.float64); best[first]=np.inf
+    chosen=[first]; best=np.full(n,-np.inf,dtype=np.float64); best[first]=1.
     while len(chosen)<m:
         last=chosen[-1]
         sim=mixed_similarity(x,b,c,x[last:last+1],b[last:last+1],c[last:last+1]).ravel()
-        best=np.maximum(best,sim); best[np.asarray(chosen,dtype=int)]=np.inf
+        best=np.maximum(best,sim); best[np.asarray(chosen,dtype=int)]=1.
         candidate=int(np.argmin(best))
         if best[candidate]>=1.-1e-12: break
         chosen.append(candidate)
     return np.asarray(chosen,dtype=np.int64)
 
-def build_bipartite(x,b,c,anchor_indices,k=5,block=512):
+
+def expand_anchors(x,b,c,initial_indices,threshold=.85,block=256):
+    """Grow anchors only for components not sufficiently represented by existing anchors."""
+    if not -1.<=threshold<=1.: raise ValueError("anchor threshold must be in [-1, 1]")
+    n=len(x); anchors=list(dict.fromkeys(np.asarray(initial_indices,dtype=np.int64).tolist()))
+    if not anchors: raise ValueError("at least one initial anchor is required")
+    if any(i<0 or i>=n for i in anchors): raise ValueError("invalid initial anchor index")
+    is_anchor=np.zeros(n,dtype=bool); is_anchor[anchors]=True
+    best=np.full(n,-1.,dtype=np.float64)
+    for start in range(0,n,block):
+        end=min(n,start+block)
+        sim=mixed_similarity(x[start:end],b[start:end],c[start:end],x[anchors],b[anchors],c[anchors])
+        best[start:end]=sim.max(axis=1)
+    reasons=[]
+    for i in range(n):
+        if is_anchor[i]: continue
+        if best[i] <= threshold:
+            anchors.append(i); is_anchor[i]=True
+            reasons.append({"component":int(i),"reason":"no_existing_anchor_above_threshold","best_similarity_before_creation":float(best[i])})
+            for start in range(0,n,block):
+                end=min(n,start+block)
+                sim=mixed_similarity(x[start:end],b[start:end],c[start:end],x[i:i+1],b[i:i+1],c[i:i+1]).ravel()
+                best[start:end]=np.maximum(best[start:end],sim)
+    return np.asarray(anchors,dtype=np.int64),{"initial_anchor_count":int(len(initial_indices)),
+        "expanded_anchor_count":int(len(anchors)-len(initial_indices)),"final_anchor_count":int(len(anchors)),
+        "anchor_similarity_threshold":float(threshold),"anchor_creation_reasons":reasons,
+        "components_with_existing_anchor":int(np.count_nonzero(best>threshold)),
+        "components_without_external_anchor":int(np.count_nonzero(best<=threshold))}
+
+
+
+def build_bipartite(x,b,c,anchor_indices,k=5,block=512,threshold=.85):
     """Parameter-free k-nearest-anchor assignment from SC-FAGC Eq. (3)."""
     n=len(x); anchors=np.asarray(anchor_indices,dtype=np.int64); m=len(anchors)
     if anchors.ndim!=1 or m==0 or np.any(anchors<0) or np.any(anchors>=n): raise ValueError("invalid anchor indices")
@@ -53,7 +84,10 @@ def build_bipartite(x,b,c,anchor_indices,k=5,block=512):
             i=start+local
             if i in own:
                 rows.append(i); cols.append(own[i]); vals.append(1.); continue
-            order=np.lexsort((anchors,dist[local])); active=order[:kk]
+            eligible=np.flatnonzero(sim[local]>threshold)
+            if eligible.size==0:
+                raise ValueError(f'component {i} has no qualifying anchor; run expand_anchors first')
+            order=eligible[np.lexsort((anchors[eligible],dist[local,eligible]))]; active=order[:min(kk,len(order))]
             cutoff=dist[local,order[kk]] if m>kk else dist[local,order[-1]]+1.
             weights=np.maximum(cutoff-dist[local,active],0.); denom=float(weights.sum())
             if denom<=1e-15: weights[:]=1.; denom=float(len(weights))
@@ -179,14 +213,16 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
       "score":"0.4*S_anchor+0.3*S_mean+0.3*S_min-P(new_group_size)","score_records":records}
 
 
-def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
+def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,anchor_threshold=.85,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
     # Cluster count is a controllable SC-FAGC hyperparameter; sqrt(n) is only
     # a bounded default heuristic. Final raw-mass capacity is enforced below.
     n_clusters=n_clusters or min(n,32,max(1,int(np.ceil(np.sqrt(n)))))
     if n_clusters>n: raise ValueError("n_clusters cannot exceed number of components")
     n_anchors=min(n,max(int(n_anchors or np.ceil(.05*n)),n_clusters))
-    anchors=select_anchor_indices(x,b,c,n_anchors,seed); B=build_bipartite(x,b,c,anchors,k=anchor_k)
+    initial_anchors=select_anchor_indices(x,b,c,n_anchors,seed)
+    anchors,anchor_expansion=expand_anchors(x,b,c,initial_anchors,threshold=anchor_threshold)
+    B=build_bipartite(x,b,c,anchors,k=anchor_k,threshold=anchor_threshold)
     anchor_mass=np.asarray(B.T@mass).ravel()
     requested_anchors=n_anchors; selected_anchors=len(anchors); requested_clusters=n_clusters
     active=anchor_mass>0
@@ -200,7 +236,7 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     if not opt['converged']:
         return {'components':n,'anchors':len(anchors),'anchors_requested':requested_anchors,'zero_mass_anchors_removed':selected_anchors-len(anchors),'redundant_anchors_not_selected':requested_anchors-selected_anchors,'optimization':opt,'status':'optimization_not_validated','assignment':list(range(n)),'probabilities':np.asarray(B@U).tolist(),'anchor_indices':anchors.tolist()}
     probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U)
-    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_anchors_not_selected":requested_anchors-selected_anchors,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),
+    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":len(initial_anchors),"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_anchors_not_selected":requested_anchors-selected_anchors,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
             "component_mass_max":int(mass.max()),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
             "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),
@@ -213,11 +249,11 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("--input",type=Path,required=True); p.add_argument("--output",type=Path,required=True)
     p.add_argument("--anchors",type=int,default=None); p.add_argument("--clusters",type=int,default=None); p.add_argument("--capacity",type=int,default=100)
-    p.add_argument("--anchor-k",type=int,default=5); p.add_argument("--epsilon",type=float,default=.01); p.add_argument("--max-iter",type=int,default=100); p.add_argument("--sinkhorn-iter",type=int,default=1000)
+    p.add_argument("--anchor-k",type=int,default=5); p.add_argument("--anchor-threshold",type=float,default=.85); p.add_argument("--epsilon",type=float,default=.01); p.add_argument("--max-iter",type=int,default=100); p.add_argument("--sinkhorn-iter",type=int,default=1000)
     a=p.parse_args()
     with np.load(a.input,allow_pickle=False) as f:
         result=run(f["x"],f["b"],f["c"],f["component_mass"],n_anchors=a.anchors,n_clusters=a.clusters,
-                   max_component_group_mass=a.capacity,anchor_k=a.anchor_k,epsilon=a.epsilon,max_iter=a.max_iter,sinkhorn_iter=a.sinkhorn_iter)
+                   max_component_group_mass=a.capacity,anchor_k=a.anchor_k,anchor_threshold=a.anchor_threshold,epsilon=a.epsilon,max_iter=a.max_iter,sinkhorn_iter=a.sinkhorn_iter)
     a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(result,indent=2,allow_nan=False),encoding="utf-8")
     print(json.dumps({k:v for k,v in result.items() if k not in ("assignment","probabilities","anchor_indices")},indent=2))
 
