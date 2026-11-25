@@ -120,3 +120,26 @@ Run from repository root:
 The audit independently counts raw attack and normal rows per final group, reports attack/normal percentages, mixed/pure groups, macro group impurity, and raw-row-weighted impurity. It cross-checks reconstructed raw-row totals against `components.raw_rows` and attack counts against `components.attack_rows`; mismatches fail closed. If all mapping paths belong to `type=attacks`, the report explicitly flags an attack-only input rather than claiming clustering purity.
 
 This audit requires the original pilot `mapping_*.npz` files. `nodes.npz` and `components.npz` alone are insufficient to reconstruct source-partition labels. The audit is post-hoc and must never be imported by the clustering pipeline.
+
+
+## Label-blind 50k temporal pilot (2026-11-25)
+
+The earlier pilot used the first five chronological 10k chunks after stable sorting. Since source paths were sorted with attacks before normal, equal-timestamp rows and the first-window cutoff could yield an attack-only pilot even when the full day contains both classes. This is a sampling defect, not evidence that the day lacks normal traffic.
+
+The revised default samples exactly 50,000 rows from the selected day using five equal-duration time bins (10,000 rows per bin), uniform random selection without replacement within each bin, and a fixed seed. Sampling uses timestamps and row positions only. It does not read partition labels, enforce a 61.4/38.6 class ratio, or stratify by attack/normal. The natural class ratio is expected to be approximated by a representative sample, then measured only in the separate post-hoc label-mix audit.
+
+The pilot no longer calculates label-derived diagnostics during graph construction. Mapping files retain source paths solely for the independent post-hoc audit. The 10,000-record processing batch remains unchanged. If any temporal bin has fewer than its quota, the sampler fails clearly rather than silently changing the design.
+
+Run the 50k pilot:
+`python -m graph.pilot --day 2026-06-21 --sample-rows 50000 --temporal-bins 5 --seed 42 --backend exact --output artifacts/graph/pilot_50k`
+
+Then rebuild connected components:
+`python -m graph.components --input artifacts/graph/pilot_50k --output artifacts/graph/components_50k`
+
+Then run SC-FAGC/SCRAC with the approved settings:
+`python -m graph.component_sc_fagc --nodes artifacts/graph/pilot_50k/nodes.npz --components artifacts/graph/components_50k/components.npz --output artifacts/graph/sc_fagc/report_50k_cubic200.json --capacity 200 --lambda-size 0.20 --acceptance-threshold 0.75 --anchor-threshold 0.85 --max-iter 500`
+
+Then run post-hoc label-mix audit:
+`python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot_50k --components artifacts/graph/components_50k/components.npz --assignment-report artifacts/graph/sc_fagc/report_50k_cubic200.json --output artifacts/graph/sc_fagc/label_mix_50k_cubic200.json`
+
+The full-day run is a separate later experiment using `--full-day --backend indexed`; it is not part of the 50k pilot. The 61.4/38.6 ratio is a population reference from the complete day, not a sampling constraint. Never use attack/normal labels to select pilot rows or build the graph.
