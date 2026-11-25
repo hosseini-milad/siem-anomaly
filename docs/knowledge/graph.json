@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "status": "stage_5_hierarchy_prototype_implemented_unit_tests_passed_real_data_pending",
-  "current_stage": "Stage 5 — topology-preserving hierarchical graph compression",
+  "current_stage": "Temporal hierarchy redesign — chunk components to daily, monthly and yearly super-components",
   "nodes": [
     {
       "id": "data",
@@ -339,6 +339,22 @@
       "stage": 5,
       "status": "planned_local_output_not_generated",
       "description": "Local NPZ sparse levels and child-parent mappings plus JSON manifest; generated from original adjacency and SCRAC assignment; do not commit sensitive graph artifacts."
+    },
+    {
+      "id": "temporal_hierarchy_engine",
+      "kind": "module",
+      "path": "hierarchy/temporal.py",
+      "stage": 5,
+      "status": "implemented_synthetic_tests_added_integration_pending",
+      "description": "Temporal component aggregation, not graph contraction. Input is one descriptor per component from independently processed 10,000-row chunks. Groups components within day, then daily super-components within month, then monthly super-components within year. Label-blind strict complete-link similarity; capacity measured by represented raw-row mass; preserves explicit child membership in reports. Parquet/chunk component extraction adapter and real-data evaluation remain pending."
+    },
+    {
+      "id": "temporal_hierarchy_tests",
+      "kind": "test",
+      "path": "tests/test_temporal_hierarchy.py",
+      "stage": 5,
+      "status": "added_execution_pending",
+      "description": "Tests temporal day/month/year grouping, strict complete-link non-transitivity, represented-row capacity, and input validation."
     }
   ],
   "edges": [
@@ -620,6 +636,24 @@
       "to": "hierarchy_artifact",
       "relation": "produces",
       "status": "implemented"
+    },
+    {
+      "from": "node_scrac",
+      "to": "temporal_hierarchy_engine",
+      "relation": "chunk_level_component_descriptors_input",
+      "status": "integration_pending"
+    },
+    {
+      "from": "temporal_hierarchy_engine",
+      "to": "temporal_hierarchy_engine",
+      "relation": "daily_to_monthly_to_yearly_parent_aggregation",
+      "status": "implemented"
+    },
+    {
+      "from": "temporal_hierarchy_engine",
+      "to": "hierarchy_artifact",
+      "relation": "temporal_supercomponent_membership_and_reports",
+      "status": "planned"
     }
   ],
   "symbols": [
