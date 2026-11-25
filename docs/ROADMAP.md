@@ -101,3 +101,21 @@ Run candidate 0.78/0.20:
 `python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
 
 Run baseline 0.75/0.20 with the same command and output path `structural_0p750_0p200.json`. Review both reports before implementing any structural refinement.
+
+
+## Stage 4.4 — topology preservation audit (implemented; execution pending)
+
+Added `scripts/evaluate_scrac_topology.py` and `tests/test_scrac_topology.py`. This is a read-only, label-blind audit of the fixed SCRAC partition against the original sparse adjacency. It builds the weighted quotient matrix, checks edge/weight and aggregate degree-volume conservation, computes weighted modularity and group conductance, detects SCRAC groups that merge nodes from distinct original connected components, and compares low normalized-Laplacian eigenvalues diagnostically. No mapping, source paths, raw flow rows or attack/normal labels are read. Synthetic tests are added but have not been executed in the user's environment.
+
+Test:
+`python -m pytest tests/test_scrac_topology.py -q --basetemp=.pytest_tmp`
+
+0.78:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p780_0p200.json`
+
+0.75:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p750_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p750_0p200.json`
+
+### Final compression and hierarchy — architecture approved for pilot design, not implemented
+
+Keep the original graph immutable. Freeze a validated SCRAC partition, construct a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create further levels only by deterministic label-blind contractions. Every parent must retain reversible child-to-parent maps and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs, source graph/version hash). A merge must pass structural compatibility, capacity and connectivity safeguards plus explicit cumulative distortion checks. Validate each level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is limited to one extra hierarchy level on the 5k pilot; full-day processing remains blocked pending topology and reconstruction results.
