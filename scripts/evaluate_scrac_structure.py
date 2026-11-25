@@ -116,9 +116,10 @@ def _graph_metrics(graph_path: Path, labels: np.ndarray) -> dict:
         keys = pair_a[inter].astype(np.int64) * n_groups + pair_b[inter].astype(np.int64)
         uniq, inv = np.unique(keys, return_inverse=True)
         qweights = np.bincount(inv, weights=weights[inter])
+        qcounts = np.bincount(inv)
         quotient_edges = [
             {"group_a": int(k // n_groups), "group_b": int(k % n_groups),
-             "original_edge_count": int(np.count_nonzero(inv == j)),
+             "original_edge_count": int(qcounts[j]),
              "weight_sum": float(qweights[j])}
             for j, k in enumerate(uniq)
         ]
