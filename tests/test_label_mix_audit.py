@@ -18,7 +18,7 @@ def test_posthoc_attack_normal_mix_uses_raw_mapping_rows(tmp_path):
     )
     np.savez_compressed(
         mapping / "mapping_000.npz",
-        node=np.array([0, 0, 0, 1, 1], dtype=np.int64),
+        node=np.array([0, 0, 1, 2, 2], dtype=np.int64),
         source=np.array([
             "date=2026-06-21/type=attacks/a.parquet",
             "date=2026-06-21/type=attacks/a.parquet",
