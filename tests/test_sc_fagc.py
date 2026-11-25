@@ -71,7 +71,14 @@ def test_irw_objective_is_monotone_on_toy_data():
 def test_zero_mass_anchors():
     x=np.tile([1.,0.],(6,1)); b=np.ones((6,1)); c=np.zeros((6,1))
     result=run(x,b,c,np.ones(6,dtype=int),n_anchors=4,n_clusters=3,max_iter=5)
-    assert result["zero_mass_anchors_removed"]==3
-    assert result["clusters_effective"]==1
+    assert result["zero_mass_anchors_removed"]==0
+    assert result["anchors"]==1
     assert result["represented_raw_rows"]==6
     assert result["unassigned_components"]==0
+
+
+def test_anchor_self_support_and_ties():
+    x,b,c,_=toy()
+    B=build_bipartite(x,b,c,np.array([0,1,2]),k=2)
+    assert np.allclose(B[[0,1,2]].toarray(),np.eye(3))
+    assert np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.)
