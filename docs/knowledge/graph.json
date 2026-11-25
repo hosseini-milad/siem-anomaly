@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "stage_4_4_topology_audit_implemented_execution_pending",
-  "current_stage": "Stage 4.4.1 — topology-constrained SCRAC experiment",
+  "status": "stage_5_hierarchy_prototype_implemented_unit_tests_passed_real_data_pending",
+  "current_stage": "Stage 5 — topology-preserving hierarchical graph compression",
   "nodes": [
     {
       "id": "data",
@@ -315,6 +315,30 @@
       "path": "tests/test_scrac_topology_constraint.py",
       "stage": 4.4,
       "status": "added_execution_pending"
+    },
+    {
+      "id": "hierarchy_graph_engine",
+      "kind": "module",
+      "path": "hierarchy/graph.py",
+      "stage": 5,
+      "status": "implemented_unit_tests_passed_real_data_pending",
+      "description": "Builds a weighted SCRAC quotient and deterministic binary multilevel contractions using normalized inter-edge affinity; preserves original connected components, undirected edge weight, degree volume, self-loop internal weight and reversible child-parent mappings. Label-blind; no feature Complete-Link re-evaluation."
+    },
+    {
+      "id": "hierarchy_graph_tests",
+      "kind": "test",
+      "path": "tests/test_hierarchy_graph.py",
+      "stage": 5,
+      "status": "4_unit_tests_passed_locally",
+      "description": "Synthetic tests for weight/volume/topology preservation, reversible artifact roundtrip, cross-component base-group rejection, affinity stop gate and quotient isolates."
+    },
+    {
+      "id": "hierarchy_artifact",
+      "kind": "artifact",
+      "path": "artifacts/graph/hierarchy/",
+      "stage": 5,
+      "status": "planned_local_output_not_generated",
+      "description": "Local NPZ sparse levels and child-parent mappings plus JSON manifest; generated from original adjacency and SCRAC assignment; do not commit sensitive graph artifacts."
     }
   ],
   "edges": [
@@ -578,6 +602,24 @@
       "to": "scrac_topology_constraint_tests",
       "relation": "tested_by",
       "status": "test_added"
+    },
+    {
+      "from": "graph",
+      "to": "hierarchy_graph_engine",
+      "relation": "provides_original_adjacency",
+      "status": "implemented"
+    },
+    {
+      "from": "scrac_topology_constraint",
+      "to": "hierarchy_graph_engine",
+      "relation": "provides_base_assignment",
+      "status": "implemented"
+    },
+    {
+      "from": "hierarchy_graph_engine",
+      "to": "hierarchy_artifact",
+      "relation": "produces",
+      "status": "implemented"
     }
   ],
   "symbols": [
