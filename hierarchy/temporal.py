@@ -153,10 +153,10 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
                 next_rows["period"].append(str(key))
                 next_rows["origin_count"].append(int(current["origin_count"][global_members].sum()))
                 records.append({"period": str(key), "supercomponent_id": local_id,
+                                "child_component_indices": global_members.astype(int).tolist(),
                                 "child_components": int(len(members)),
                                 "represented_raw_rows": float(gm[local_id]),
                                 "origin_chunk_components": int(current["origin_count"][global_members].sum())})
-            records[-len(groups):] if groups else None
             summaries[str(key)] = {"input_components": int(len(idx)),
                                    "output_supercomponents": int(len(groups)), **stats}
         outputs[level] = records
