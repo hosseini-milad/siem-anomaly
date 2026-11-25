@@ -177,3 +177,22 @@ Mixed groups are accepted as a natural possible outcome of unsupervised mathemat
 Planned, not implemented. Measure within-group similarity distributions (minimum, p05, median, mean, p95), independently verify Complete-Link, measure feature-wise similarity contributions, cohesion/dispersion, medoid/centrality, boundary members, and pre/post graph structural preservation. Test order sensitivity with multiple deterministic permutations and label-free partition agreement. Only after diagnostics, design bounded local refinement that preserves capacity and Complete-Link while improving a graph-structure objective. Keep baseline outputs immutable and report runtime/memory.
 
 Acceptance gates: all 5000 nodes assigned; raw-row mass conserved; capacity <=200; every within-group pair strictly >0.85; no label input; graph structure preservation measured; runtime and memory reported. Full-day run and independent day replication remain pending.
+
+
+## Stage 4.3.1 — label-blind structural audit implementation
+
+Added `scripts/evaluate_scrac_structure.py` and `tests/test_scrac_structure.py`.
+
+The evaluator consumes the node feature artifact (`x,b,c`) and one node-level SCRAC assignment JSON. It independently recomputes every within-group pair using the project's exact mixed-similarity implementation (0.6 continuous cosine + 0.4 discrete agreement), and reports min/p05/median/mean/p95/max/std for total similarity and each contribution. Per-group output includes Complete-Link validity and violating-pair count, medoid node, medoid mean similarity, five weakest-link boundary members, and group size. It also checks assignment coverage and hard member capacity.
+
+Optional `--graph adjacency.npz` loads the original symmetric CSR graph and reports intra-/inter-group edge counts and weight fractions plus a sparse quotient graph between final groups. This measures how much of the original graph's edge mass is internalized or retained between groups; it does not claim that every original edge must remain an inter-group edge.
+
+The evaluator is strictly label-blind: it does not open mapping files, source paths, or attack/normal labels. It does not modify nodes, assignments, or graph artifacts. It writes a detailed JSON report with per-group profiles and prints a compact summary.
+
+Run the test:
+`python -m pytest tests/test_scrac_structure.py -q`
+
+Run the structural audit for the selected 0.78 / 0.20 candidate:
+`python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
+
+For baseline comparison, run the same command with `accept_0p750_lambda_0p200.json` and a distinct output filename. Do not select a new SCRAC configuration from class-mix metrics; use the structural report and hard constraints. Stage 4.3 refinement is not implemented until these reports are reviewed.
