@@ -1,7 +1,7 @@
 import numpy as np
 import pytest
 from scipy.sparse import csr_matrix
-from graph.sc_fagc import build_bipartite,sc_fagc,capacity_assign,run
+from graph.sc_fagc import build_bipartite,sc_fagc,capacity_assign,run,expand_anchors
 
 def toy():
     x=np.array([[1.,0.],[.99,.01],[0.,1.],[.01,.99],[-1.,0.],[-.99,.01]])
@@ -82,3 +82,20 @@ def test_anchor_self_support_and_ties():
     B=build_bipartite(x,b,c,np.array([0,1,2]),k=2)
     assert np.allclose(B[[0,1,2]].toarray(),np.eye(3))
     assert np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.)
+
+
+def test_adaptive_anchor_expansion_creates_anchor_for_uncovered_component():
+    x,b,c,_=toy()
+    anchors,report=expand_anchors(x,b,c,np.array([0]),threshold=.85)
+    assert 2 in anchors and 4 in anchors
+    assert report["components_requiring_new_anchor"]>=1
+    assert report["expanded_anchor_count"]==len(anchors)-1
+    B=build_bipartite(x,b,c,anchors,k=2,threshold=.85)
+    assert np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.)
+
+
+def test_adaptive_anchor_expansion_keeps_initial_anchor_when_covered():
+    x,b,c,_=toy()
+    anchors,report=expand_anchors(x,b,c,np.array([0,2,4]),threshold=.85)
+    assert len(anchors)==3
+    assert report["expanded_anchor_count"]==0
