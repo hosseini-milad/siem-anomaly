@@ -46,26 +46,35 @@ def chunks(root,day_filter,batch_size=BATCH_SIZE,sample_rows=50000,temporal_bins
         yield data[ids],names[files[ids]],offsets[ids]
 
 def temporal_sample_indices(times,sample_rows,temporal_bins,seed):
-    """Return sorted positions from equal-duration time bins, without reading labels."""
+    """Label-blind proportional temporal-stratified sample without replacement."""
     times=np.asarray(times,dtype=np.int64)
-    if sample_rows<1 or temporal_bins<1 or sample_rows%temporal_bins:
-        raise ValueError("sample_rows must be positive and divisible by temporal_bins")
+    if sample_rows<1 or temporal_bins<1:
+        raise ValueError("sample_rows and temporal_bins must be positive")
     if times.size<sample_rows:
         raise ValueError(f"only {times.size} rows available; {sample_rows} requested")
     lower=int(times.min()); upper=int(times.max())
     if upper<=lower:
         raise ValueError("cannot temporally stratify records with a single timestamp")
-    quota=sample_rows//temporal_bins
-    rng=np.random.default_rng(seed)
     edges=np.linspace(lower,upper+1,temporal_bins+1,dtype=np.int64)
+    bin_ids=np.searchsorted(edges[1:-1],times,side="right")
+    counts=np.bincount(bin_ids,minlength=temporal_bins).astype(np.int64)
+    if np.any(counts==0):
+        raise ValueError("empty temporal bin; reduce temporal_bins or inspect timestamps")
+    exact=sample_rows*counts.astype(np.float64)/float(times.size)
+    quotas=np.floor(exact).astype(np.int64)
+    remainder=sample_rows-int(quotas.sum())
+    order=np.argsort(-(exact-quotas),kind="stable")
+    for j in order[:remainder]:
+        quotas[j]+=1
+    if np.any(quotas>counts):
+        raise RuntimeError("temporal sample quota exceeds available rows")
+    rng=np.random.default_rng(seed)
     selected=[]
     for bin_id in range(temporal_bins):
-        positions=np.flatnonzero((times>=edges[bin_id])&(times<edges[bin_id+1]))
-        if len(positions)<quota:
-            raise ValueError(f"temporal bin {bin_id} has {len(positions)} rows; {quota} required")
-        selected.append(rng.choice(positions,size=quota,replace=False))
+        positions=np.flatnonzero(bin_ids==bin_id)
+        if quotas[bin_id]:
+            selected.append(rng.choice(positions,size=int(quotas[bin_id]),replace=False))
     return np.sort(np.concatenate(selected))
-
 
 
 def main():
@@ -80,7 +89,7 @@ def main():
     p.add_argument("--backend",choices=("exact","indexed"),default="exact")
     p.add_argument("--full-day",action="store_true")
     a=p.parse_args()
-    if a.sample_rows<1 or a.temporal_bins<1 or a.sample_rows%a.temporal_bins:p.error("--sample-rows must be positive and divisible by --temporal-bins")
+    if a.sample_rows<1 or a.temporal_bins<1:p.error("--sample-rows and --temporal-bins must be positive")
     if a.full_day and a.backend!="indexed":p.error("full-day requires indexed backend")
     a.output.mkdir(parents=True,exist_ok=True)
     with np.load(a.transform,allow_pickle=False) as f:model=Transform(*(f[k] for k in ("median","scale","center","whitening")))
@@ -105,7 +114,7 @@ def main():
     report["backend"]=a.backend
     report["full_day"]=a.full_day
     report["allocation_policy"]="coverage_first_then_weight_first"
-    report["sampling"]={"method":"uniform random sampling within equal-duration temporal bins","sample_rows":None if a.full_day else a.sample_rows,"temporal_bins":None if a.full_day else a.temporal_bins,"seed":a.seed,"label_blind":True,"label_ratio_target":"natural population ratio; never enforced using labels"}
+    report["sampling"]={"method":"proportional uniform random sampling without replacement within equal-duration temporal bins","sample_rows":None if a.full_day else a.sample_rows,"temporal_bins":None if a.full_day else a.temporal_bins,"seed":a.seed,"label_blind":True,"allocation":"proportional to unlabeled row counts per temporal bin using largest remainder","label_ratio_target":"natural population ratio; never enforced using labels"}
     report["isolate_fraction"]=float((degree==0).mean())
     (a.output/"report.json").write_text(json.dumps(report,indent=2),encoding="utf-8")
     print(json.dumps(report,indent=2))
