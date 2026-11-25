@@ -66,3 +66,12 @@ def test_irw_objective_is_monotone_on_toy_data():
     history=np.asarray(result["optimization"]["objective_history"])
     assert len(history)>=2
     assert np.all(np.diff(history)>=-1e-7)
+
+
+def test_zero_mass_anchors():
+    x=np.tile([1.,0.],(6,1)); b=np.ones((6,1)); c=np.zeros((6,1))
+    result=run(x,b,c,np.ones(6,dtype=int),n_anchors=4,n_clusters=3,max_iter=5)
+    assert result["zero_mass_anchors_removed"]==3
+    assert result["clusters_effective"]==1
+    assert result["represented_raw_rows"]==6
+    assert result["unassigned_components"]==0
