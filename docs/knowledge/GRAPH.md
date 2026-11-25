@@ -220,3 +220,18 @@ Keep the original graph immutable. Freeze a validated SCRAC partition, build a w
 The optional `topology_labels` argument in `graph.sc_fagc.scrac_assign` and `graph.sc_fagc.run` gates each candidate-group option against the seed's original connected-component ID. `graph.node_scrac.main` derives these IDs from the original sparse adjacency when `--adjacency` is supplied, writes a separate local component-ID artifact, and passes IDs into SCRAC. Without `--adjacency`, prior behavior is unchanged. The rule is label-blind and preserves every node; it prevents a contraction group from spanning disconnected original components but does not force separate components to become connected.
 
 Synthetic test: `tests/test_scrac_topology_constraint.py`. Real-data evaluation remains pending.
+
+
+## Stage 5 — implemented hierarchy prototype
+```mermaid
+flowchart TD
+ A[Original sparse adjacency] --> Q[SCRAC weighted quotient: hierarchy.graph._quotient]
+ S[Topology-constrained SCRAC assignment] --> Q
+ Q --> M[Deterministic weighted maximal matching: hierarchy.graph._matching]
+ M --> C[Contract adjacent pairs within same original component]
+ C --> V[Validate edge weight, degree volume and component count]
+ V --> L[Next sparse quotient level]
+ L --> M
+ V --> P[save_hierarchy: sparse levels + reversible child-parent maps]
+```
+Verified public entry points: `hierarchy.graph.build_hierarchy(adjacency, base_assignment, original_component_ids=None, max_levels=6, min_affinity=0.0)` returns `HierarchyResult`; `hierarchy.graph.save_hierarchy(result, output_prefix)` writes NPZ and JSON; `hierarchy.graph.load_hierarchy(npz_path, manifest_path=None)` restores them; `hierarchy.graph.main()` exposes the CLI. Unit tests: `tests/test_hierarchy_graph.py` (4 passed locally). Real-data run and distortion evaluation pending.
