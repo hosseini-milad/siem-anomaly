@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage4_1_corrected_validation_pending",
+  "status": "adaptive_anchor_expansion_implemented_validation_pending",
   "current_stage": 4.1,
   "nodes": [
     {
@@ -1486,5 +1486,11 @@
     "degree_cap": 20,
     "accepted_pilot_isolate_fraction": 0.2092,
     "production_integrated": true
-  }
+  },
+  "decisions": [
+    {
+      "date": "2026-11-25",
+      "decision": "Initial anchor ratio (default 5%) is seed budget only; dynamically create a new anchor when no existing anchor has mixed similarity strictly greater than configurable threshold (default 0.85). Prefer qualifying existing anchors; sparse B rows sum to one; anchor self-assignment; log expansion reasons and coverage."
+    }
+  ]
 }
