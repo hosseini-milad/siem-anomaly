@@ -1,0 +1,43 @@
+import numpy as np
+import pytest
+from scipy.sparse import csr_matrix
+from graph.sc_fagc import build_bipartite,sc_fagc,capacity_assign,run
+
+def toy():
+    x=np.array([[1.,0.],[.99,.01],[0.,1.],[.01,.99],[-1.,0.],[-.99,.01]])
+    b=np.array([[1],[1],[0],[0],[1],[1]]); c=np.array([[0],[0],[1],[1],[2],[2]])
+    return x,b,c,np.array([20,15,20,15,20,10])
+
+def test_bipartite_rows_are_probabilities():
+    x,b,c,_=toy(); B=build_bipartite(x,b,c,np.array([0,2,4]),k=2)
+    assert np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.) and np.all(B.data>=0)
+
+def test_sc_fagc_mass_bounds_and_row_simplex():
+    B=csr_matrix([[1.,0.],[.8,.2],[0.,1.]]); w=np.array([50.,50.])
+    U,info=sc_fagc(B,w,2,40.,60.,max_iter=20); col=w@U
+    assert np.allclose(U.sum(axis=1),1.,atol=1e-7)
+    assert np.all(col>=40.-1e-5) and np.all(col<=60.+1e-5) and info["iterations"]>=1
+
+def test_capacity_assignment_respects_cap_when_feasible():
+    p=np.array([[.9,.1],[.8,.2],[.1,.9],[.2,.8]]); labels,info=capacity_assign(p,np.array([30,20,25,25]),50)
+    assert np.all(labels>=0) and max(info["cluster_mass"])<=50 and info["capacity_respected_for_assignable_components"]
+
+def test_oversized_component_is_not_split():
+    p=np.array([[.9,.1],[.1,.9]]); labels,info=capacity_assign(p,np.array([120,20]),100)
+    assert labels[0]!=labels[1] and info["oversized_component_indices"]==[0]
+
+def test_run_end_to_end():
+    x,b,c,mass=toy(); result=run(x,b,c,mass,n_anchors=4,n_clusters=2,max_component_group_mass=100,max_iter=10,sinkhorn_iter=500)
+    assert result["components"]==6 and len(result["assignment"])==6
+    assert len(result["probabilities"])==6 and result["represented_raw_rows"]==100
+
+def test_rejects_infeasible_bounds():
+    with pytest.raises(ValueError,match="infeasible"): sc_fagc(csr_matrix(np.eye(2)),np.array([10.,10.]),2,11.,12.)
+
+def test_component_aggregation(tmp_path):
+    from graph.component_sc_fagc import aggregate_components
+    nodes=tmp_path/"nodes.npz"; comps=tmp_path/"components.npz"
+    np.savez(nodes,x=np.array([[1.,0.],[.9,.1],[0.,1.]]),b=np.array([[1],[1],[0]]),c=np.array([[0],[0],[1]]))
+    np.savez(comps,component_id=np.array([0,0,1]),raw_rows=np.array([25,10]))
+    x,b,c,mass=aggregate_components(nodes,comps)
+    assert x.shape==(2,2) and b.ravel().tolist()==[1,0] and c.ravel().tolist()==[0,1] and mass.tolist()==[25,10]
