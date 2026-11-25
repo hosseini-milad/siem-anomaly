@@ -50,7 +50,6 @@ def main() -> None:
     parser.add_argument("--acceptance-threshold", type=float, default=0.75)
     parser.add_argument("--anchor-k", type=int, default=5)
     parser.add_argument("--anchor-threshold", type=float, default=0.85)
-    parser.add_argument("--complete-link-threshold", type=float, default=0.85)
     parser.add_argument("--epsilon", type=float, default=0.01)
     parser.add_argument("--max-iter", type=int, default=500)
     parser.add_argument("--sinkhorn-iter", type=int, default=2000)
@@ -79,12 +78,6 @@ def main() -> None:
         scrac_lambda=args.lambda_size,
         scrac_acceptance=args.acceptance_threshold,
     )
-
-    # The shared run() currently fixes SCRAC's Complete-Link threshold at 0.85.
-    # Fail closed if a caller requests a different value until it is exposed
-    # as a first-class run() parameter rather than silently ignoring the CLI.
-    if args.complete_link_threshold != 0.85:
-        raise ValueError("this revision supports Complete-Link threshold 0.85 only")
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     input_components = args.output.with_name(args.output.stem + "_input_components.npz")
