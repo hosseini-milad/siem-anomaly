@@ -107,3 +107,16 @@ Independent audit:
 `python -m scripts.evaluate_sc_fagc --nodes artifacts/graph/pilot/nodes.npz --components artifacts/graph/components/components.npz --report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/evaluation_cubic200.json --threshold 0.85 --capacity 200`
 
 The audit reports group member-count distribution, raw-row-mass distribution separately, hard-capacity violations, Complete-Link violations, and assignment coverage. Compare capacity 100/150/200 and lambda 0/0.10/0.20/0.30, using identical input and deterministic settings. Also run multiple input orders to quantify greedy-order sensitivity. Synthetic tests do not establish real-data quality; inspect runtime and peak memory on the pilot before considering production use.
+
+
+## Post-hoc attack/normal mixture audit
+
+Class labels are strictly evaluation-only. The graph pilot, representative selection, graph construction, SC-FAGC anchors, and SCRAC assignments must not consume labels. The audit reconstructs raw-row class membership only after the final assignment exists, using the saved `mapping_*.npz` source partition paths, graph-node-to-initial-component mapping in `components.npz`, and final `assignment` in the SCRAC report.
+
+Run from repository root:
+
+`python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot --components artifacts/graph/components/components.npz --assignment-report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/label_mix_cubic200.json`
+
+The audit independently counts raw attack and normal rows per final group, reports attack/normal percentages, mixed/pure groups, macro group impurity, and raw-row-weighted impurity. It cross-checks reconstructed raw-row totals against `components.raw_rows` and attack counts against `components.attack_rows`; mismatches fail closed. If all mapping paths belong to `type=attacks`, the report explicitly flags an attack-only input rather than claiming clustering purity.
+
+This audit requires the original pilot `mapping_*.npz` files. `nodes.npz` and `components.npz` alone are insufficient to reconstruct source-partition labels. The audit is post-hoc and must never be imported by the clustering pipeline.
