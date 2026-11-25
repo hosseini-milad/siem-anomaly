@@ -58,3 +58,11 @@ def test_scrac_complete_link_and_total_mapping():
     assert np.all(labels>=0) and len(labels)==len(x)
     assert report["comparison"]=="strict_greater_than"
     assert report["recovered_singleton_count"]>=0
+
+
+def test_irw_objective_is_monotone_on_toy_data():
+    x,b,c,mass=toy()
+    result=run(x,b,c,mass,n_anchors=4,n_clusters=2,max_iter=30,sinkhorn_iter=1000)
+    history=np.asarray(result["optimization"]["objective_history"])
+    assert len(history)>=2
+    assert np.all(np.diff(history)>=-1e-7)
