@@ -5,7 +5,7 @@ import numpy as np
 from graph.component_sc_fagc import aggregate_components
 from graph.sc_fagc import mixed_similarity
 
-def evaluate(nodes,components,report_path,threshold=.85):
+def evaluate(nodes,components,report_path,threshold=.85,capacity=200):
     t0=time.perf_counter()
     x,b,c,mass=aggregate_components(nodes,components)
     report=json.loads(Path(report_path).read_text(encoding="utf-8"))
@@ -27,12 +27,12 @@ def evaluate(nodes,components,report_path,threshold=.85):
       "components":int(len(x)),"raw_rows":int(mass.sum()),"groups":int(len(groups)),
       "component_group_size":{"min":int(min(sizes)),"median":float(np.median(sizes)),"mean":float(np.mean(sizes)),"p95":float(np.percentile(sizes,95)),"max":int(max(sizes))},
       "raw_mass_group_size":{"min":int(min(masses)),"median":float(np.median(masses)),"mean":float(np.mean(masses)),"p95":float(np.percentile(masses,95)),"max":int(max(masses))},
-      "groups_over_100_components":int(sum(v>100 for v in sizes)),
+      "groups_over_capacity":int(sum(v>capacity for v in sizes)),\n      "groups_at_capacity":int(sum(v==capacity for v in sizes)),\n      "capacity":int(capacity),\n      "capacity_violations":int(sum(v>capacity for v in sizes)),\n      "groups_over_100_components":int(sum(v>100 for v in sizes)),
       "groups_over_100_raw_rows":int(sum(v>100 for v in masses)),
       "singleton_groups":int(sum(v==1 for v in sizes)),
       "complete_link_threshold":float(threshold),
       "complete_link_violations":violations,
-      "complete_link_valid":len(violations)==0,
+      "complete_link_valid":len(violations)==0,\n      "capacity_valid":bool(max(sizes,default=0)<=capacity),\n      "all_components_assigned_once":bool(len(labels)==len(x) and np.unique(labels).size==len(groups)),
       "anchor_expansion":report.get("anchor_expansion",{}),
       "anchors_initial":report.get("initial_anchors"),
       "anchors_after_expansion":report.get("anchors_after_expansion",report.get("anchors")),
@@ -45,8 +45,8 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument("--nodes",type=Path,required=True); p.add_argument("--components",type=Path,required=True)
     p.add_argument("--report",type=Path,required=True); p.add_argument("--output",type=Path,required=True)
-    p.add_argument("--threshold",type=float,default=.85); a=p.parse_args()
-    result=evaluate(a.nodes,a.components,a.report,a.threshold)
+    p.add_argument("--threshold",type=float,default=.85); p.add_argument("--capacity",type=int,default=200); a=p.parse_args()
+    result=evaluate(a.nodes,a.components,a.report,a.threshold,a.capacity)
     a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(result,indent=2,allow_nan=False),encoding="utf-8")
     print(json.dumps(result,indent=2))
 
