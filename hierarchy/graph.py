@@ -57,8 +57,9 @@ def _quotient(g: csr_matrix, labels: np.ndarray) -> csr_matrix:
 
 
 def _weight(g: csr_matrix) -> float:
-    d = float(g.diagonal().sum())
-    return float((g.sum() + d) / 2.0)
+    # Symmetric adjacency stores each undirected edge twice; quotient
+    # diagonals store twice the internal undirected weight as well.
+    return float(g.sum() / 2.0)
 
 
 def _metrics(g: csr_matrix, cc: np.ndarray, base_size: np.ndarray,
