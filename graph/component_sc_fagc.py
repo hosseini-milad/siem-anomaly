@@ -29,7 +29,7 @@ def aggregate_components(nodes_path,components_path):
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("--nodes",type=Path,required=True); p.add_argument("--components",type=Path,required=True)
     p.add_argument("--output",type=Path,required=True); p.add_argument("--anchors",type=int,default=None); p.add_argument("--clusters",type=int,default=None)
-    p.add_argument("--capacity",type=int,default=100); p.add_argument("--anchor-k",type=int,default=5); p.add_argument("--epsilon",type=float,default=.01)
+    p.add_argument("--capacity",type=int,default=100); p.add_argument("--anchor-k",type=int,default=5); p.add_argument("--anchor-threshold",type=float,default=.85); p.add_argument("--epsilon",type=float,default=.01)
     p.add_argument("--max-iter",type=int,default=100); p.add_argument("--sinkhorn-iter",type=int,default=1000)
     a=p.parse_args(); x,b,c,mass=aggregate_components(a.nodes,a.components)
     result=run(x,b,c,mass,n_anchors=a.anchors,n_clusters=a.clusters,max_component_group_mass=a.capacity,anchor_k=a.anchor_k,
