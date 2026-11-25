@@ -20,7 +20,7 @@ def atoms():
 
 def test_builds_day_month_year_from_chunk_components_label_blind():
     result = build_temporal_hierarchy(*atoms(), similarity_threshold=.85,
-                                      max_component_mass=100)
+                                      max_child_components=100)
     assert result["manifest"]["label_blind"] is True
     assert result["manifest"]["labels_read"] is False
     assert result["manifest"]["levels"] == [
@@ -44,7 +44,7 @@ def test_complete_link_prevents_transitive_chain_merge():
     period = np.array(["2026-06-01"] * 3)
     chunk = np.array(["a", "b", "c"])
     result = build_temporal_hierarchy(x, b, c, mass, period, chunk,
-                                      similarity_threshold=.85, max_component_mass=10)
+                                      similarity_threshold=.85, max_child_components=10)
     rows = result["levels"]["day"]
     assert len(rows) == 2
 
