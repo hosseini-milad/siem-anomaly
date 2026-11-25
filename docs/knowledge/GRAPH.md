@@ -196,3 +196,20 @@ Run the structural audit for the selected 0.78 / 0.20 candidate:
 `python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
 
 For baseline comparison, run the same command with `accept_0p750_lambda_0p200.json` and a distinct output filename. Do not select a new SCRAC configuration from class-mix metrics; use the structural report and hard constraints. Stage 4.3 refinement is not implemented until these reports are reviewed.
+
+
+## Stage 4.4 — SCRAC topology-preservation audit
+
+Added `scripts/evaluate_scrac_topology.py` and `tests/test_scrac_topology.py`. The evaluator reads only the original sparse symmetric `adjacency.npz` and node-level SCRAC assignment JSON. It builds weighted quotient matrix `Q = H^T A H`, retaining internal edge weight on the diagonal, and reports edge/weight partition, inter-group quotient edges, exact aggregate degree-volume conservation, weighted modularity, per-group conductance, original and quotient connected-component counts, SCRAC groups spanning multiple original connected components, and low-end normalized-Laplacian eigenvalues. Spectral comparison is explicitly diagnostic because the operators have different dimensions. No labels, mapping files, source paths or raw flow records are read. Inputs are read-only.
+
+Run test:
+`python -m pytest tests/test_scrac_topology.py -q --basetemp=.pytest_tmp`
+
+Run candidate 0.78:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p780_0p200.json`
+
+Run baseline 0.75 by substituting the matching assignment report and output filename.
+
+## Final compression and hierarchy architecture (design only)
+
+Keep the original graph immutable. Freeze a validated SCRAC partition, build a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create additional levels only through deterministic label-blind contractions. Each level must retain reversible child-to-parent mappings and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs and source graph/version hash). A candidate merge must pass structural compatibility, capacity and connectivity safeguards plus cumulative distortion checks. Validate every level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is one additional hierarchy level on the 5k pilot; full-day processing is blocked pending topology and reconstruction results.
