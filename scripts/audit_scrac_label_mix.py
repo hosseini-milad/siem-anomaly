@@ -49,7 +49,9 @@ def audit(mapping_dir, components_path, assignment_report, output_path=None):
     total_attack = np.zeros(group_count, dtype=np.int64)
     total_normal = np.zeros(group_count, dtype=np.int64)
     mapped_rows_per_node = np.zeros(n_nodes, dtype=np.int64)
-    source_files = set()\n    source_partition_counts = {"attacks": 0, "normal": 0}\n    source_days = set()
+    source_files = set()
+    source_partition_counts = {"attacks": 0, "normal": 0}
+    source_days = set()
     mapping_files = sorted(mapping_dir.glob("mapping_*.npz"))
     if not mapping_files:
         raise FileNotFoundError(f"no mapping_*.npz files found in {mapping_dir}")
@@ -71,7 +73,12 @@ def audit(mapping_dir, components_path, assignment_report, output_path=None):
             np.add.at(total_normal, group, 1 - labels)
             np.add.at(mapped_rows_per_node, node, 1)
             mapped_total += len(node)
-            source_values = np.asarray(f["source"]).astype(str)\n            source_files.update(source_values.tolist())\n            for value in source_values:\n                match = re.search(r"date=(\\d{4}-\\d{2}-\\d{2})", value.replace(chr(92), "/"))\n                if match:\n                    source_days.add(match.group(1))
+            source_values = np.asarray(f["source"]).astype(str)
+            source_files.update(source_values.tolist())
+            for value in source_values:
+                match = re.search(r"date=(\d{4}-\d{2}-\d{2})", value.replace(chr(92), "/"))
+                if match:
+                    source_days.add(match.group(1))
 
     mapped_per_component = np.bincount(
         node_to_component, weights=mapped_rows_per_node, minlength=n_components
@@ -130,7 +137,9 @@ def audit(mapping_dir, components_path, assignment_report, output_path=None):
     summary = {
         "label_usage": "post-hoc evaluation only; not used in graph construction, anchor selection, or SCRAC assignment",
         "mapping_files": len(mapping_files),
-        "source_paths": len(source_files),\n        "source_days": sorted(source_days),\n        "source_partition_raw_rows": source_partition_counts,
+        "source_paths": len(source_files),
+        "source_days": sorted(source_days),
+        "source_partition_raw_rows": source_partition_counts,
         "graph_nodes": n_nodes,
         "initial_components": n_components,
         "final_groups": group_count,
