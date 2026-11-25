@@ -225,7 +225,7 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
       "max_group_size":max(sizes,default=0),"capacity":int(capacity),
       "capacity_violations":int(sum(v>capacity for v in sizes)),
       "groups_at_capacity":int(sum(v==capacity for v in sizes)),
-      "singleton_groups":int(sum(v==1 for v in sizes)),
+      "singleton_groups":int(sum(v==1 for v in sizes)),\n      "recovered_singleton_count":int(sum(v==1 for v in sizes)),\n      "recovered_singleton_components":[int(g[0]) for g in groups if len(g)==1],
       "complete_link_threshold":float(threshold),"comparison":"strict_greater_than",
       "size_penalty_formula":"lambda_size * (proposed_group_size / capacity)^3",
       "lambda_size":float(lambda_size),"acceptance_threshold":float(acceptance_threshold),
