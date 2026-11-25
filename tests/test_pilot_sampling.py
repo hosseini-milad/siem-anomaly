@@ -21,10 +21,10 @@ def test_temporal_sampler_uses_equal_duration_bins():
     assert counts == [20, 20, 20, 20, 20]
 
 
-def test_temporal_sampler_does_not_use_labels_and_rejects_sparse_bin():
+def test_temporal_sampler_rejects_sparse_temporal_bin():
     times = np.concatenate([np.arange(0, 10), np.arange(100, 110)]).astype(np.int64)
     with pytest.raises(ValueError, match="temporal bin"):
-        temporal_sample_indices(times, 10, 2, 7)
+        temporal_sample_indices(times, 10, 5, 7)
 
 
 def test_temporal_sampler_requires_divisible_quota():
