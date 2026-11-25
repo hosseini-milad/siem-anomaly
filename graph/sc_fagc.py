@@ -112,6 +112,60 @@ def capacity_assign(probabilities,component_mass,max_size=100):
     return labels,{"cluster_count":int(len(loads)),"cluster_mass":loads.tolist(),"max_cluster_mass":int(loads.max(initial=0)),
                    "oversized_component_indices":oversized,"capacity_respected_for_assignable_components":bool(np.all(assignable_loads<=max_size))}
 
+
+def size_penalty(new_raw_mass,lambda1=.02,lambda2=.10):
+    """Approved SCRAC penalty on proposed represented raw-row mass."""
+    n=float(new_raw_mass)
+    return float(lambda1*np.log1p(n/50.)+lambda2*(max(0.,n-100.)/100.)**2)
+
+def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assignments,threshold=.85):
+    """Complete-Link plus size-regularized assignment; every component is retained."""
+    P=np.asarray(probabilities,dtype=np.float64); mass=np.asarray(component_mass,dtype=np.float64)
+    U=np.asarray(anchor_assignments,dtype=np.float64); anchors=np.asarray(anchor_indices,dtype=np.int64); n=len(x)
+    if P.shape[0]!=n or U.shape[0]!=len(anchors) or P.shape[1]!=U.shape[1] or mass.shape!=(n,):
+        raise ValueError("SCRAC assignment inputs are not aligned")
+    groups=[]; seeds=[]; used=set()
+    for j in range(P.shape[1]):
+        for ai in np.argsort(-U[:,j],kind="stable"):
+            candidate=int(anchors[ai])
+            if candidate not in used:
+                used.add(candidate); seeds.append(candidate); groups.append([candidate]); break
+    if not groups: raise ValueError("SC-FAGC did not provide any group anchors")
+    remaining=np.asarray([i for i in range(n) if i not in used],dtype=np.int64)
+    confidence=np.max(P,axis=1); remaining=remaining[np.argsort(-confidence[remaining],kind="stable")]
+    unassigned=[]; records=[]
+    def score(i,gid):
+        members=np.asarray(groups[gid],dtype=np.int64)
+        sim=mixed_similarity(x[i:i+1],b[i:i+1],c[i:i+1],x[members],b[members],c[members]).ravel()
+        smin=float(sim.min())
+        if not smin>threshold: return None
+        smean=float(sim.mean())
+        sa=float(mixed_similarity(x[i:i+1],b[i:i+1],c[i:i+1],x[seeds[gid]:seeds[gid]+1],
+                                  b[seeds[gid]:seeds[gid]+1],c[seeds[gid]:seeds[gid]+1])[0,0])
+        new_mass=float(mass[members].sum()+mass[i]); penalty=size_penalty(new_mass)
+        return .4*sa+.3*smean+.3*smin-penalty,{"anchor":sa,"mean":smean,"minimum":smin,"new_raw_mass":new_mass,"penalty":penalty}
+    for i in remaining:
+        options=[]
+        for gid in np.argsort(-P[i],kind="stable"):
+            item=score(int(i),int(gid))
+            if item is not None: options.append((item[0],int(gid),item[1]))
+        if options:
+            options.sort(key=lambda z:(-z[0],z[1])); value,gid,parts=options[0]
+            groups[gid].append(int(i)); records.append({"component":int(i),"group":gid,"score":float(value),**parts})
+        else: unassigned.append(int(i))
+    recovered=[]
+    for i in unassigned:
+        gid=len(groups); groups.append([i]); seeds.append(i); recovered.append(i)
+    labels=np.empty(n,dtype=np.int64)
+    for gid,members in enumerate(groups): labels[np.asarray(members,dtype=np.int64)]=gid
+    group_mass=[int(mass[np.asarray(g,dtype=np.int64)].sum()) for g in groups]
+    return labels,{"groups":len(groups),"group_mass":group_mass,"max_group_mass":max(group_mass,default=0),
+      "oversized_groups":int(sum(v>100 for v in group_mass)),"recovered_singleton_components":recovered,
+      "recovered_singleton_count":len(recovered),"complete_link_threshold":float(threshold),"comparison":"strict_greater_than",
+      "size_penalty":"0.02*ln(1+n/50)+0.10*(max(0,n-100)/100)^2",
+      "score":"0.4*S_anchor+0.3*S_mean+0.3*S_min-P(new_raw_mass)","score_records":records}
+
+
 def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
     # Cluster count is a controllable SC-FAGC hyperparameter; sqrt(n) is only
@@ -122,15 +176,16 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     anchors=select_anchor_indices(x,b,c,n_anchors,seed); B=build_bipartite(x,b,c,anchors,k=anchor_k)
     anchor_mass=np.asarray(B.T@mass).ravel(); target=float(mass.sum()/n_clusters); lower=.4*target; upper=max(target,float(max_component_group_mass))
     U,opt=sc_fagc(B,anchor_mass,n_clusters,lower,upper,epsilon,max_iter,sinkhorn_iter)
-    probabilities=np.asarray(B@U); labels,cap=capacity_assign(probabilities,mass,max_component_group_mass)
+    probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U)
     return {"components":n,"anchors":len(anchors),"clusters_requested":n_clusters,"represented_raw_rows":int(mass.sum()),
             "component_mass_max":int(mass.max()),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
-            "optimization":opt,"capacity":cap,"unassigned_components":int(np.count_nonzero(labels<0)),
+            "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),
             "method_notes":["SC-FAGC IRW and entropy-regularized DB-OT operate on existing graph components.",
              "Deterministic farthest-first medoids replace the paper's BKHK anchor generator; this is an explicit adaptation.",
-             "Anchor-level mass bounds are exact for the OT subproblem; final raw-mass capacity is enforced separately.",
-             "Components individually larger than capacity remain intact and are reported as oversized."]}
+             "SCRAC Complete-Link requires minimum mixed similarity strictly above 0.85.",
+             "Size penalty is 0.02*ln(1+n/50)+0.10*(max(0,n-100)/100)^2 on proposed raw-row mass.",
+             "Unmatched components are retained as standalone groups; no source component is discarded."]}
 
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("--input",type=Path,required=True); p.add_argument("--output",type=Path,required=True)
