@@ -68,3 +68,8 @@ coverage, objective history, runtime, peak memory, and downstream anomaly
 metrics on agreed held-out days. Weighted DB-OT and final capacity assignment
 are project adaptations; the paper's anchor-level bounds alone do not imply a
 hard capacity guarantee for final components.
+
+
+## Adaptive anchor expansion (2026-11-25)
+
+The initial 5% anchor budget is a starting seed, not a cap. Each component is compared against current anchors using the configured mixed-similarity threshold (default 0.85). If at least one existing anchor has similarity strictly greater than the threshold, the component is assigned to its nearest qualifying anchors (up to anchor-k). Otherwise the component becomes a new anchor and can represent later components. The bipartite matrix is sparse; each row sums to one and anchor rows self-assign. Reports distinguish initial coverage, components requiring new anchors, number of newly created anchors, final anchor count, and each creation reason. Threshold is an experimental hyperparameter and must be evaluated separately from SCRAC Complete-Link.
