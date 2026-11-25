@@ -79,9 +79,12 @@ def test_zero_mass_anchors():
 
 def test_anchor_self_support_and_ties():
     x,b,c,_=toy()
-    B=build_bipartite(x,b,c,np.array([0,1,2]),k=2)
-    assert np.allclose(B[[0,1,2]].toarray(),np.eye(3))
+    initial=np.array([0,1,2])
+    anchors,expansion=expand_anchors(x,b,c,initial,threshold=.85)
+    B=build_bipartite(x,b,c,anchors,k=2,threshold=.85)
+    assert np.allclose(B[anchors].toarray(),np.eye(len(anchors)))
     assert np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.)
+    assert expansion["final_anchor_count"]==len(anchors)
 
 
 def test_adaptive_anchor_expansion_creates_anchor_for_uncovered_component():
