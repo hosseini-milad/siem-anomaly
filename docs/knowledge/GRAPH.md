@@ -134,3 +134,46 @@ The initial 5% anchor budget is a starting seed, not a cap. Each component is co
 - Labels are never used in model fitting or assignment. Original mapping artifacts are required; nodes.npz and components.npz alone do not preserve per-raw-row source partition.
 - Run: `python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot --components artifacts/graph/components/components.npz --assignment-report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/label_mix_cubic200.json`.
 - Validation status: synthetic tests added; local execution on the user's real pilot artifacts is pending.
+
+
+## End-to-end project status (2026-11-25)
+
+```mermaid
+flowchart TD
+ A[Historical Parquet] --> B[Canonical reader and data audit]
+ B --> C[Train-fitted preprocessing: robust scaling + ZCA]
+ C --> D[Label-blind 10% representative reduction]
+ D --> E[Chronological mixed sparse graph]
+ E --> F[Coverage-first + Weight-first edge allocation]
+ F --> G[Connected components and component audit]
+ G --> H[SC-FAGC anchors + weighted DB-OT]
+ H --> I[SCRAC Complete-Link grouping]
+ I --> J[Post-hoc label-mix audit]
+ I --> K[Stage 4.3 structural diagnostics]
+ K --> L[Local structure-preserving refinement]
+ L --> M[Compression acceptance]
+ M --> N[Hierarchy / downstream modeling / evaluation]
+```
+
+### Current position: Stage 4.2 completed; Stage 4.3 next
+
+Completed and reviewed on the 50k pilot (2026-11-25): 5000 graph representative nodes representing 50000 raw rows from logical day 2026-06-21. Node-level SCRAC avoids treating a giant connected component as indivisible. SC-FAGC ran once for the six-configuration sweep and converged in 216 iterations. Total sweep runtime was 898.614 seconds including the shared SC-FAGC pass; individual SCRAC runs took approximately 121.8-123.1 seconds. Final groups: 388-390; singletons: 13-14; largest group: 174-200 representative nodes; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for represented mass and does not read source partition labels. Separate post-hoc audit found 17735 attack and 32265 normal raw rows.
+
+### SCRAC sensitivity results
+
+| Acceptance | Cubic lambda | Groups | Mixed groups | Macro impurity | Raw-row weighted impurity |
+|---:|---:|---:|---:|---:|---:|
+| 0.75 | 0.20 | 388 | 23 | 0.8055% | 1.996% |
+| 0.75 | 0.30 | 390 | 25 | 0.8680% | 1.968% |
+| 0.78 | 0.20 | 389 | 23 | 0.8020% | 1.954% |
+| 0.78 | 0.30 | 390 | 25 | 0.8211% | 2.000% |
+| 0.80 | 0.20 | 389 | 23 | 0.8019% | 1.954% |
+| 0.80 | 0.30 | 390 | 24 | 0.8190% | 2.000% |
+
+Mixed groups are accepted as a natural possible outcome of unsupervised mathematical compression; zero mixed groups is explicitly not an objective. Labels must not be used to select anchors, construct similarities, assign or refine groups. The 0.78/0.20 setting is only a modest candidate; 0.78/0.20 and 0.80/0.20 are effectively tied. Lambda 0.30 is not supported. Do not change production defaults yet.
+
+### Stage 4.3 — next active phase: structural diagnostics
+
+Planned, not implemented. Measure within-group similarity distributions (minimum, p05, median, mean, p95), independently verify Complete-Link, measure feature-wise similarity contributions, cohesion/dispersion, medoid/centrality, boundary members, and pre/post graph structural preservation. Test order sensitivity with multiple deterministic permutations and label-free partition agreement. Only after diagnostics, design bounded local refinement that preserves capacity and Complete-Link while improving a graph-structure objective. Keep baseline outputs immutable and report runtime/memory.
+
+Acceptance gates: all 5000 nodes assigned; raw-row mass conserved; capacity <=200; every within-group pair strictly >0.85; no label input; graph structure preservation measured; runtime and memory reported. Full-day run and independent day replication remain pending.
