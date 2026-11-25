@@ -36,7 +36,7 @@ def _validate_atoms(x, b, c, mass, period, chunk_id):
         raise ValueError("all atom arrays must have aligned rows")
     if n == 0 or not np.isfinite(x).all() or not np.isfinite(mass).all() or np.any(mass <= 0):
         raise ValueError("atoms must be non-empty with finite features and positive mass")
-    if not all(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value) for value in period):
+    if not all(re.fullmatch(r"\d{4}-\d{2}-\d{2}", value) for value in period):
         raise ValueError("period values must be ISO dates YYYY-MM-DD")
     if not all(value.strip() for value in chunk_id):
         raise ValueError("chunk_id cannot be empty")
@@ -135,6 +135,7 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
         parent_keys = (current["period"] if level == "day"
                        else np.asarray([str(p)[:7] for p in current["period"]]) if level == "month"
                        else np.asarray([str(p)[:4] for p in current["period"]]))
+        input_count_for_level = len(current["mass"])
         next_rows = {k: [] for k in ("x", "b", "c", "mass", "period", "origin_count")}
         records = []
         for key in sorted(np.unique(parent_keys)):
@@ -167,7 +168,7 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
             current["period"] = np.asarray([p[:4] for p in current["period"]])
         else:
             current["period"] = np.asarray(current["period"])
-        summaries = {"periods": summaries, "total_input": int(len(x)),
+        summaries = {"periods": summaries, "total_input": int(input_count_for_level),
                      "total_output": int(len(current["mass"]))}
         # Reset per-level period summary for next iteration.
         outputs[level + "_summary"] = summaries
