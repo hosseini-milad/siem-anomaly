@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "stage4_components_implemented_validation_pending",
-  "current_stage": 3,
+  "status": "stage4_1_sc_fagc_implemented_synthetic_tests_passed_real_validation_pending",
+  "current_stage": 4.1,
   "nodes": [
     {
       "id": "data",
@@ -177,6 +177,35 @@
       "path": "graph/components.py",
       "stage": 4,
       "status": "implemented_pending_test"
+    },
+    {
+      "id": "component_sc_fagc",
+      "kind": "module",
+      "path": "graph/sc_fagc.py",
+      "stage": 4.1,
+      "status": "implemented_synthetic_tests_passed_real_validation_pending",
+      "description": "SC-FAGC IRW/MM and weighted double-bounded OT over connected-component structural representatives; medoid anchor generation is a documented BKHK adaptation."
+    },
+    {
+      "id": "component_sc_fagc_cli",
+      "kind": "module",
+      "path": "graph/component_sc_fagc.py",
+      "stage": 4.1,
+      "status": "implemented_synthetic_tests_passed_real_validation_pending"
+    },
+    {
+      "id": "component_sc_fagc_tests",
+      "kind": "test",
+      "path": "tests/test_sc_fagc.py",
+      "stage": 4.1,
+      "status": "7_synthetic_tests_passed_locally"
+    },
+    {
+      "id": "sc_fagc_runbook",
+      "kind": "document",
+      "path": "docs/SC_FAGC.md",
+      "stage": 4.1,
+      "status": "implemented"
     }
   ],
   "edges": [
@@ -336,6 +365,26 @@
       "from": "components",
       "to": "compression",
       "relation": "component membership and profiles"
+    },
+    {
+      "from": "components",
+      "to": "component_sc_fagc",
+      "relation": "component descriptors and represented raw-row mass"
+    },
+    {
+      "from": "component_sc_fagc",
+      "to": "component_sc_fagc_cli",
+      "relation": "soft assignments and capacity-aware grouping"
+    },
+    {
+      "from": "component_sc_fagc_cli",
+      "to": "sc_fagc_runbook",
+      "relation": "execution and validation documentation"
+    },
+    {
+      "from": "component_sc_fagc",
+      "to": "component_sc_fagc_tests",
+      "relation": "validated by synthetic tests"
     }
   ],
   "symbols": [
@@ -1223,6 +1272,110 @@
         "tests/test_components.py"
       ],
       "status": "implemented_pending_test"
+    },
+    {
+      "qualified_name": "graph.sc_fagc.build_bipartite",
+      "path": "graph/sc_fagc.py",
+      "inputs": [
+        "component features",
+        "anchor indices",
+        "k"
+      ],
+      "outputs": [
+        "row-stochastic bipartite matrix B"
+      ],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.sc_fagc.sc_fagc",
+      "path": "graph/sc_fagc.py",
+      "inputs": [
+        "B",
+        "anchor mass",
+        "cluster count",
+        "bilateral bounds"
+      ],
+      "outputs": [
+        "soft anchor assignments U",
+        "objective and Sinkhorn diagnostics"
+      ],
+      "dependencies": [
+        "numpy",
+        "scipy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.sc_fagc.capacity_assign",
+      "path": "graph/sc_fagc.py",
+      "inputs": [
+        "component probabilities",
+        "raw-row mass",
+        "capacity"
+      ],
+      "outputs": [
+        "whole-component labels",
+        "cluster mass report"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.component_sc_fagc.aggregate_components",
+      "path": "graph/component_sc_fagc.py",
+      "inputs": [
+        "graph pilot nodes.npz",
+        "component audit components.npz"
+      ],
+      "outputs": [
+        "component-level continuous/discrete descriptors",
+        "raw-row masses"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.component_sc_fagc.main",
+      "path": "graph/component_sc_fagc.py",
+      "inputs": [
+        "CLI --nodes --components --output"
+      ],
+      "outputs": [
+        "report.json",
+        "report.npz"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
     }
   ],
   "symbol_fields": [
