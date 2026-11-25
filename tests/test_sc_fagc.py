@@ -43,10 +43,27 @@ def test_component_aggregation(tmp_path):
     assert x.shape==(2,2) and b.ravel().tolist()==[1,0] and c.ravel().tolist()==[0,1] and mass.tolist()==[25,10]
 
 
-def test_size_penalty_piecewise_formula():
+def test_size_penalty_cubic_formula():
     from graph.sc_fagc import size_penalty
-    assert size_penalty(50)==pytest.approx(.02*np.log1p(1.))
-    assert size_penalty(200)==pytest.approx(.02*np.log1p(4.)+.10)
+    assert size_penalty(100,200,.20)==pytest.approx(.025)
+    assert size_penalty(200,200,.20)==pytest.approx(.20)
+    assert size_penalty(0,200,.20)==pytest.approx(0.)
+
+
+def test_scrac_hard_capacity_and_member_count_not_raw_mass():
+    from graph.sc_fagc import scrac_assign
+    x,b,c,_=toy()
+    # Six components have large raw-row masses, but capacity counts components.
+    mass=np.array([10000,10000,10000,10000,10000,10000])
+    probabilities=np.array([[.9,.1],[.9,.1],[.9,.1],[.9,.1],[.1,.9],[.1,.9]])
+    anchors=np.array([0,4]); U=np.array([[.9,.1],[.1,.9]])
+    labels,report=scrac_assign(x,b,c,mass,probabilities,anchors,U,threshold=-1.,capacity=3,
+                               lambda_size=.20,acceptance_threshold=-1.)
+    assert np.all(labels>=0)
+    assert max(report["group_sizes"])<=3
+    assert report["capacity_violations"]==0
+    assert sum(report["group_sizes"])==len(x)
+    assert sum(report["group_mass_raw_rows"])==int(mass.sum())
 
 
 def test_scrac_complete_link_and_total_mapping():
