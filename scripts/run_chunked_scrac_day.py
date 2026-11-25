@@ -45,8 +45,59 @@ def run_day(root, day, transform_path, output, capacity=200, sample_chunk_size=1
                    max_component_group_mass=capacity,scrac_capacity=capacity,
                    scrac_lambda=lambda_size,scrac_acceptance=acceptance_threshold,
                    topology_labels=topology)
-        if result.get("status")=="optimization_not_validated" or "scrac_assignment" not in result:
-            raise RuntimeError(f"{chunk_id}: SC-FAGC optimization not validated; report retained, refusing false success")
+        if result.get("status") == "optimization_not_validated" or "scrac_assignment" not in result:
+            opt = result.get("optimization", {})
+            diagnostic = {
+                "status": "optimization_not_validated",
+                "day": day,
+                "chunk_id": chunk_id,
+                "raw_rows": int(len(data)),
+                "representative_nodes": int(len(rx)),
+                "components": result.get("components"),
+                "anchors": result.get("anchors"),
+                "optimization": {
+                    "converged": opt.get("converged"),
+                    "iterations": opt.get("iterations"),
+                    "sinkhorn_converged": opt.get("sinkhorn_converged"),
+                    "sinkhorn_iterations": opt.get("sinkhorn_iterations"),
+                    "row_mass_max_error": opt.get("row_mass_max_error"),
+                    "row_relative_error": opt.get("row_relative_error"),
+                    "column_relative_error": opt.get("column_relative_error"),
+                    "column_mass_min": opt.get("column_mass_min"),
+                    "column_mass_max": opt.get("column_mass_max"),
+                    "objective_history": opt.get("objective_history"),
+                },
+                "anchor_expansion": result.get("anchor_expansion"),
+                "anchor_counts": {
+                    "requested": result.get("anchors_requested"),
+                    "initial": result.get("initial_anchors"),
+                    "after_expansion": result.get("anchors_after_expansion"),
+                    "zero_mass_removed": result.get("zero_mass_anchors_removed"),
+                },
+            }
+            diagnostic_path = output / f"{chunk_id}_optimization_diagnostic.json"
+            diagnostic_path.write_text(
+                json.dumps(diagnostic, indent=2, allow_nan=False),
+                encoding="utf-8"
+            )
+            failure_report = {
+                "status": "optimization_not_validated",
+                "day": day,
+                "failed_chunk": chunk_id,
+                "completed_chunks": summaries,
+                "diagnostic": str(diagnostic_path),
+                "runtime_seconds": round(time.perf_counter() - started, 3),
+                "label_blind": True,
+            }
+            (output / "failure_report.json").write_text(
+                json.dumps(failure_report, indent=2, allow_nan=False),
+                encoding="utf-8"
+            )
+            print(json.dumps(diagnostic, indent=2))
+            raise RuntimeError(
+                f"{chunk_id}: SC-FAGC optimization not validated; "
+                f"diagnostic saved to {diagnostic_path}"
+            )
         assignment=np.asarray(result["assignment"],dtype=np.int64)
         if assignment.shape!=(len(rx),) or np.any(assignment<0):
             raise RuntimeError(f"{chunk_id}: incomplete SCRAC assignment")
