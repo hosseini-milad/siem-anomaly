@@ -174,10 +174,18 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     if n_clusters>n: raise ValueError("n_clusters cannot exceed number of components")
     n_anchors=min(n,max(int(n_anchors or np.ceil(np.sqrt(n))),n_clusters))
     anchors=select_anchor_indices(x,b,c,n_anchors,seed); B=build_bipartite(x,b,c,anchors,k=anchor_k)
-    anchor_mass=np.asarray(B.T@mass).ravel(); target=float(mass.sum()/n_clusters); lower=.4*target; upper=max(target,float(max_component_group_mass))
+    anchor_mass=np.asarray(B.T@mass).ravel()
+    requested_anchors=len(anchors); requested_clusters=n_clusters
+    active=anchor_mass>0
+    if not np.any(active): raise ValueError("no positive-mass anchors")
+    B=B[:,active].tocsr(); anchors=anchors[active]; anchor_mass=anchor_mass[active]
+    if not np.allclose(np.asarray(B.sum(axis=1)).ravel(),1.) or not np.isclose(anchor_mass.sum(),mass.sum()):
+        raise ValueError("anchor filtering violated mass conservation")
+    n_clusters=min(n_clusters,len(anchors))
+    target=float(mass.sum()/n_clusters); lower=.4*target; upper=max(target,float(max_component_group_mass))
     U,opt=sc_fagc(B,anchor_mass,n_clusters,lower,upper,epsilon,max_iter,sinkhorn_iter)
     probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U)
-    return {"components":n,"anchors":len(anchors),"clusters_requested":n_clusters,"represented_raw_rows":int(mass.sum()),
+    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"zero_mass_anchors_removed":requested_anchors-len(anchors),"represented_raw_rows":int(mass.sum()),
             "component_mass_max":int(mass.max()),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
             "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),
