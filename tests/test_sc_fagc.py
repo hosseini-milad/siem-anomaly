@@ -58,7 +58,7 @@ def test_scrac_hard_capacity_and_member_count_not_raw_mass():
     probabilities=np.array([[.9,.1],[.9,.1],[.9,.1],[.9,.1],[.1,.9],[.1,.9]])
     anchors=np.array([0,4]); U=np.array([[.9,.1],[.1,.9]])
     labels,report=scrac_assign(x,b,c,mass,probabilities,anchors,U,threshold=-1.,capacity=3,
-                               lambda_size=.20,acceptance_threshold=-1.)
+                               lambda_size=.20,acceptance_threshold=0.0)
     assert np.all(labels>=0)
     assert max(report["group_sizes"])<=3
     assert report["capacity_violations"]==0
