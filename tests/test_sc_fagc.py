@@ -41,3 +41,20 @@ def test_component_aggregation(tmp_path):
     np.savez(comps,component_id=np.array([0,0,1]),raw_rows=np.array([25,10]))
     x,b,c,mass=aggregate_components(nodes,comps)
     assert x.shape==(2,2) and b.ravel().tolist()==[1,0] and c.ravel().tolist()==[0,1] and mass.tolist()==[25,10]
+
+
+def test_size_penalty_piecewise_formula():
+    from graph.sc_fagc import size_penalty
+    assert size_penalty(50)==pytest.approx(.02*np.log1p(1.))
+    assert size_penalty(200)==pytest.approx(.02*np.log1p(4.)+.10)
+
+
+def test_scrac_complete_link_and_total_mapping():
+    from graph.sc_fagc import scrac_assign
+    x,b,c,mass=toy()
+    probabilities=np.array([[.9,.1],[.8,.2],[.1,.9],[.2,.8],[.7,.3],[.6,.4]])
+    U=np.array([[.9,.1],[.1,.9]])
+    labels,report=scrac_assign(x,b,c,mass,probabilities,np.array([0,2]),U,threshold=.85)
+    assert np.all(labels>=0) and len(labels)==len(x)
+    assert report["comparison"]=="strict_greater_than"
+    assert report["recovered_singleton_count"]>=0
