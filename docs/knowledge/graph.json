@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "status": "stage_4_2_node_level_scrac_pilot_completed_next_structural_diagnostics",
-  "current_stage": 4.2,
+  "status": "stage_4_3_1_structural_audit_implemented_execution_pending",
+  "current_stage": 4.3,
   "nodes": [
     {
       "id": "data",
@@ -254,6 +254,21 @@
       "stage": 4.3,
       "status": "planned_not_implemented",
       "description": "Label-blind within-group structural diagnostics and bounded refinement; no class-purity objective."
+    },
+    {
+      "id": "scrac_structural_evaluator",
+      "kind": "module",
+      "path": "scripts/evaluate_scrac_structure.py",
+      "stage": 4.3,
+      "status": "implemented_execution_pending",
+      "description": "Read-only label-blind exact within-group pairwise structural audit with Complete-Link validation, feature contribution, medoid/boundary metrics and optional sparse graph quotient diagnostics."
+    },
+    {
+      "id": "scrac_structural_tests",
+      "kind": "test",
+      "path": "tests/test_scrac_structure.py",
+      "stage": 4.3,
+      "status": "added_execution_pending"
     }
   ],
   "edges": [
@@ -469,6 +484,18 @@
       "to": "structural_diagnostics",
       "relation": "group_assignments_input_for_label_blind_diagnostics",
       "status": "planned"
+    },
+    {
+      "from": "scrac_sweep",
+      "to": "scrac_structural_evaluator",
+      "relation": "assignment_report_audited_by",
+      "status": "implemented"
+    },
+    {
+      "from": "scrac_structural_evaluator",
+      "to": "scrac_structural_tests",
+      "relation": "tested_by",
+      "status": "test_added"
     }
   ],
   "symbols": [
@@ -1624,7 +1651,8 @@
     "Stage 3 operational acceptance on two full-day runs; scientific ANN recall, peak RAM and independent validation pending. Stage 4 implemented graph/components.py: validate CSR symmetry, weights, degree and no loops; scipy connected_components including singletons; mapping_stats verifies multiplicity and partition labels with portable separators; analyze computes component size, raw mass, edges, density, edge mean and exact valid representative all-pair mixed mean via grouped sums/counts, coverage and posthoc label composition. No dense pair matrix, no graph modification. CLI reads existing graph artifacts and writes components.npz and aggregate report.json. Tests added, local execution pending. Stage 5 blocked until component review.",
     "Zero-mass anchor columns are removed before DB-OT; row normalization and total mass are checked; effective cluster count is capped by active anchors. Regression execution pending.",
     "Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor stop, self-owned anchor rows, uniform tied weights, sparse B, log-domain weighted OT with weighted entropy and feasibility gate, group-count penalty and group opening score 0.75. Default intermediate clusters capped at 32. Real-data and regression tests pending; hybrid centrality selection and independent complete-link audit pending.",
-    "Stage 4.2 node-level SCRAC pilot reviewed (2026-11-25): 5000 representative nodes, 50000 mapped raw rows from 2026-06-21 (17735 attacks, 32265 normal by post-hoc audit). SC-FAGC ran once and converged in 216 iterations; six SCRAC runs completed in 898.614 seconds total. Groups: 388-390; singletons 13-14; max member size 174-200; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for mass; source labels are not read. Baseline acceptance .75/lambda .20: 388 groups, 23 mixed, macro impurity .8055%, weighted impurity 1.996%; .78/.20: 389 groups, 23 mixed, .8020% macro and 1.954% weighted; .80/.20: 389 groups, 23 mixed, .8019% macro and 1.954% weighted. Lambda .30 produced 390 groups and 24-25 mixed groups; weighted impurity 1.968-2.000%. Nonzero mixed groups are accepted, not an optimization target. .78/.20 is a modest sensitivity candidate only, not promoted to production default. .78/.20 and .80/.20 are effectively tied. Next Stage 4.3: label-blind group-internal structural diagnostics and bounded local refinement; inspect similarity distributions, feature-wise contribution, cohesion/dispersion, medoid/centrality and order sensitivity. Reconcile prior narrative inaccuracies against the uploaded audit JSON before further comparisons."
+    "Stage 4.2 node-level SCRAC pilot reviewed (2026-11-25): 5000 representative nodes, 50000 mapped raw rows from 2026-06-21 (17735 attacks, 32265 normal by post-hoc audit). SC-FAGC ran once and converged in 216 iterations; six SCRAC runs completed in 898.614 seconds total. Groups: 388-390; singletons 13-14; max member size 174-200; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for mass; source labels are not read. Baseline acceptance .75/lambda .20: 388 groups, 23 mixed, macro impurity .8055%, weighted impurity 1.996%; .78/.20: 389 groups, 23 mixed, .8020% macro and 1.954% weighted; .80/.20: 389 groups, 23 mixed, .8019% macro and 1.954% weighted. Lambda .30 produced 390 groups and 24-25 mixed groups; weighted impurity 1.968-2.000%. Nonzero mixed groups are accepted, not an optimization target. .78/.20 is a modest sensitivity candidate only, not promoted to production default. .78/.20 and .80/.20 are effectively tied. Next Stage 4.3: label-blind group-internal structural diagnostics and bounded local refinement; inspect similarity distributions, feature-wise contribution, cohesion/dispersion, medoid/centrality and order sensitivity. Reconcile prior narrative inaccuracies against the uploaded audit JSON before further comparisons.",
+    "Stage 4.3.1 structural evaluator added: scripts/evaluate_scrac_structure.py independently computes all within-group pairs using graph.sc_fagc.mixed_similarity, reports total and continuous/discrete similarity distributions, per-group medoid and weakest-link boundary members, strict Complete-Link compliance and capacity/coverage. Optional original adjacency.npz adds intra/inter group edge and weight fractions plus quotient graph. No labels or mapping files read; read-only. Synthetic test added but not executed; real pilot audit pending."
   ],
   "profile_summary": {
     "rows": 48759366,
