@@ -60,3 +60,6 @@ Stage 3 operational acceptance on two full-day runs; scientific ANN recall, peak
 
 ## Stage 4.1 component-level SC-FAGC
 Implemented on feature/component-sc-fagc: graph/sc_fagc.py builds component-to-anchor B with the paper's parameter-free k-nearest-anchor assignment, forms A=B.T@B, optimizes soft assignments with IRW/MM and double-bounded entropic OT (generalized Sinkhorn), and applies whole-component capacity-aware assignment. graph/component_sc_fagc.py aggregates existing connected components as structural representatives and exposes the CLI. Default represented-mass target is 100 raw rows per behavioral group; indivisible components larger than 100 remain intact and are explicitly reported. Anchor mass is propagated from component raw_rows. The paper's BKHK anchor generator is currently replaced by deterministic farthest-first medoids; this is documented as an adaptation, not exact reproduction. Ten synthetic tests pass locally. Real-data T0-T4 evaluation, runtime/RAM profiling, SCRAC comparison, objective monotonicity review, and independent temporal validation remain pending. Stage 5 remains blocked until these reports are reviewed.
+
+
+Zero-mass anchor columns are removed before DB-OT; row normalization and total mass are checked; effective cluster count is capped by active anchors. Regression execution pending.
