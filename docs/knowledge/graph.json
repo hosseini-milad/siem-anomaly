@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "status": "stage4_1_sc_fagc_implemented_synthetic_tests_passed_real_validation_pending",
+  "status": "stage4_1_sc_fagc_scrac_integrated_synthetic_tests_passed_real_validation_pending",
   "current_stage": 4.1,
   "nodes": [
     {
@@ -184,7 +184,7 @@
       "path": "graph/sc_fagc.py",
       "stage": 4.1,
       "status": "implemented_synthetic_tests_passed_real_validation_pending",
-      "description": "SC-FAGC IRW/MM and weighted double-bounded OT over connected-component structural representatives; medoid anchor generation is a documented BKHK adaptation."
+      "description": "SC-FAGC IRW/MM and weighted DB-OT over connected-component representatives, followed by SCRAC Complete-Link and approved size-regularized assignment; medoid anchors are a documented BKHK adaptation."
     },
     {
       "id": "component_sc_fagc_cli",
@@ -198,7 +198,7 @@
       "kind": "test",
       "path": "tests/test_sc_fagc.py",
       "stage": 4.1,
-      "status": "7_synthetic_tests_passed_locally"
+      "status": "9_synthetic_tests_passed_locally"
     },
     {
       "id": "sc_fagc_runbook",
@@ -1367,6 +1367,47 @@
       "outputs": [
         "report.json",
         "report.npz"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.sc_fagc.size_penalty",
+      "path": "graph/sc_fagc.py",
+      "inputs": [
+        "proposed represented raw-row mass"
+      ],
+      "outputs": [
+        "lambda1 logarithmic plus lambda2 quadratic penalty"
+      ],
+      "dependencies": [
+        "numpy"
+      ],
+      "stage": 4.1,
+      "tests": [
+        "tests/test_sc_fagc.py"
+      ],
+      "status": "implemented"
+    },
+    {
+      "qualified_name": "graph.sc_fagc.scrac_assign",
+      "path": "graph/sc_fagc.py",
+      "inputs": [
+        "component descriptors",
+        "SC-FAGC probabilities",
+        "anchor indices",
+        "anchor assignments"
+      ],
+      "outputs": [
+        "Complete-Link groups",
+        "size-regularized scores",
+        "total component mapping"
       ],
       "dependencies": [
         "numpy"
