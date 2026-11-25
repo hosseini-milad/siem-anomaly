@@ -234,4 +234,4 @@ flowchart TD
  L --> M
  V --> P[save_hierarchy: sparse levels + reversible child-parent maps]
 ```
-Verified public entry points: `hierarchy.graph.build_hierarchy(adjacency, base_assignment, original_component_ids=None, max_levels=6, min_affinity=0.0)` returns `HierarchyResult`; `hierarchy.graph.save_hierarchy(result, output_prefix)` writes NPZ and JSON; `hierarchy.graph.load_hierarchy(npz_path, manifest_path=None)` restores them; `hierarchy.graph.main()` exposes the CLI. Unit tests: `tests/test_hierarchy_graph.py` (4 passed locally). Real-data run and distortion evaluation pending.
+Verified public entry points: `hierarchy.graph.build_hierarchy(adjacency, base_assignment, original_component_ids=None, max_levels=6, min_affinity=0.0)` returns `HierarchyResult`; `hierarchy.graph.save_hierarchy(result, output_prefix)` writes NPZ and JSON; `hierarchy.graph.load_hierarchy(npz_path, manifest_path=None)` restores them; `hierarchy.graph.main()` exposes the CLI. Unit tests: `tests/test_hierarchy_graph.py` (5 tests added; local equivalent suite passed). Real-data run and distortion evaluation pending.
