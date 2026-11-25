@@ -198,7 +198,7 @@
       "kind": "test",
       "path": "tests/test_sc_fagc.py",
       "stage": 4.1,
-      "status": "9_synthetic_tests_passed_locally"
+      "status": "10_synthetic_tests_passed_locally"
     },
     {
       "id": "sc_fagc_runbook",
