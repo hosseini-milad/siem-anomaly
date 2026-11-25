@@ -13,6 +13,8 @@ import time
 from pathlib import Path
 
 import numpy as np
+from scipy.sparse import load_npz
+from scipy.sparse.csgraph import connected_components
 
 from graph.sc_fagc import run
 
@@ -41,6 +43,8 @@ def load_node_mass(mapping_dir: Path, n_nodes: int) -> tuple[np.ndarray, list[st
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--nodes", type=Path, required=True)
+    parser.add_argument("--adjacency", type=Path, default=None,
+                        help="Original sparse adjacency; enables hard same-original-component assignment.")
     parser.add_argument("--mapping-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--anchors", type=int, default=None)
@@ -64,6 +68,16 @@ def main() -> None:
         raise ValueError("node feature arrays are not aligned")
 
     mass, mapping_files = load_node_mass(args.mapping_dir, len(x))
+    topology_labels = None
+    topology_components_artifact = None
+    if args.adjacency is not None:
+        adjacency = load_npz(args.adjacency).tocsr()
+        if adjacency.shape != (len(x), len(x)):
+            raise ValueError("adjacency dimensions must match nodes.npz")
+        n_topology_components, topology_labels = connected_components(adjacency, directed=False)
+        topology_labels = topology_labels.astype(np.int64, copy=False)
+        topology_components_artifact = args.output.with_name(args.output.stem + "_topology_components.npz")
+        np.savez_compressed(topology_components_artifact, component_id=topology_labels)
     result = run(
         x, b, c, mass,
         n_anchors=args.anchors,
@@ -77,6 +91,7 @@ def main() -> None:
         scrac_capacity=args.capacity,
         scrac_lambda=args.lambda_size,
         scrac_acceptance=args.acceptance_threshold,
+        topology_labels=topology_labels,
     )
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
@@ -98,6 +113,12 @@ def main() -> None:
     result["mapping_files_used_for_mass_only"] = mapping_files
     result["mapping_source_labels_read"] = False
     result["input_components_artifact"] = str(input_components)
+    result["topology_constraint"] = {
+        "enabled": topology_labels is not None,
+        "original_connected_components": int(n_topology_components) if topology_labels is not None else None,
+        "component_ids_artifact": str(topology_components_artifact) if topology_components_artifact else None,
+        "policy": "hard same-original-connected-component group eligibility" if topology_labels is not None else "disabled",
+    }
     result["complete_link_threshold"] = 0.85
     result["runtime_seconds"] = round(time.perf_counter() - started, 3)
     result["purpose"] = (
@@ -112,6 +133,7 @@ def main() -> None:
         "groups": result.get("scrac_assignment", {}).get("groups"),
         "max_group_size": result.get("scrac_assignment", {}).get("max_group_size"),
         "capacity_violations": result.get("scrac_assignment", {}).get("capacity_violations"),
+        "topology_constraint": result.get("topology_constraint"),
         "runtime_seconds": result["runtime_seconds"],
         "report": str(args.output),
         "input_components": str(input_components),

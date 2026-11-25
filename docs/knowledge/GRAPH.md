@@ -213,3 +213,10 @@ Run baseline 0.75 by substituting the matching assignment report and output file
 ## Final compression and hierarchy architecture (design only)
 
 Keep the original graph immutable. Freeze a validated SCRAC partition, build a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create additional levels only through deterministic label-blind contractions. Each level must retain reversible child-to-parent mappings and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs and source graph/version hash). A candidate merge must pass structural compatibility, capacity and connectivity safeguards plus cumulative distortion checks. Validate every level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is one additional hierarchy level on the 5k pilot; full-day processing is blocked pending topology and reconstruction results.
+
+
+## Stage 4.4.1 — topology-constrained SCRAC experiment
+
+The optional `topology_labels` argument in `graph.sc_fagc.scrac_assign` and `graph.sc_fagc.run` gates each candidate-group option against the seed's original connected-component ID. `graph.node_scrac.main` derives these IDs from the original sparse adjacency when `--adjacency` is supplied, writes a separate local component-ID artifact, and passes IDs into SCRAC. Without `--adjacency`, prior behavior is unchanged. The rule is label-blind and preserves every node; it prevents a contraction group from spanning disconnected original components but does not force separate components to become connected.
+
+Synthetic test: `tests/test_scrac_topology_constraint.py`. Real-data evaluation remains pending.
