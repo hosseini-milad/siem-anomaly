@@ -86,7 +86,10 @@ def _complete_link_groups(x, b, c, threshold, max_child_components, block_size, 
             eligible = np.flatnonzero(row[i + 1:] > threshold) + i + 1
             for j in eligible:
                 candidates.append((float(row[j]), i, int(j)))
-    priority = np.zeros(n, dtype=bool)\n    if priority_indices is not None:\n        priority[np.asarray(priority_indices, dtype=np.int64)] = True\n    candidates.sort(key=lambda z: (-(int(priority[z[1]]) + int(priority[z[2]])), -z[0], z[1], z[2]))
+    priority = np.zeros(n, dtype=bool)
+    if priority_indices is not None:
+        priority[np.asarray(priority_indices, dtype=np.int64)] = True
+    candidates.sort(key=lambda z: (-(int(priority[z[1]]) + int(priority[z[2]])), -z[0], z[1], z[2]))
     parent = np.arange(n, dtype=np.int64)
     members = {i: [i] for i in range(n)}
     totals = np.ones(n, dtype=np.int64)
