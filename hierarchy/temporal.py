@@ -133,8 +133,8 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
     summaries = {}
     for level in LEVELS:
         parent_keys = (current["period"] if level == "day"
-                       else np.char.slice(current["period"], 0, 7) if level == "month"
-                       else np.char.slice(current["period"], 0, 4))
+                       else np.asarray([str(p)[:7] for p in current["period"]]) if level == "month"
+                       else np.asarray([str(p)[:4] for p in current["period"]]))
         next_rows = {k: [] for k in ("x", "b", "c", "mass", "period", "origin_count")}
         records = []
         for key in sorted(np.unique(parent_keys)):
