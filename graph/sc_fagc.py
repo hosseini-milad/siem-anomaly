@@ -53,6 +53,7 @@ def expand_anchors(x,b,c,initial_indices,threshold=.85,block=256):
         end=min(n,start+block)
         sim=mixed_similarity(x[start:end],b[start:end],c[start:end],x[anchors],b[anchors],c[anchors])
         best[start:end]=sim.max(axis=1)
+    initial_best=best.copy(); initially_covered=int(np.count_nonzero(initial_best>threshold))
     reasons=[]
     for i in range(n):
         if is_anchor[i]: continue
@@ -66,8 +67,9 @@ def expand_anchors(x,b,c,initial_indices,threshold=.85,block=256):
     return np.asarray(anchors,dtype=np.int64),{"initial_anchor_count":int(len(initial_indices)),
         "expanded_anchor_count":int(len(anchors)-len(initial_indices)),"final_anchor_count":int(len(anchors)),
         "anchor_similarity_threshold":float(threshold),"anchor_creation_reasons":reasons,
-        "components_with_existing_anchor":int(np.count_nonzero(best>threshold)),
-        "components_without_external_anchor":int(np.count_nonzero(best<=threshold))}
+        "components_covered_by_initial_anchors":initially_covered,
+        "components_requiring_new_anchor":int(n-initially_covered),
+        "components_covered_after_expansion":int(np.count_nonzero(best>threshold))}
 
 
 
