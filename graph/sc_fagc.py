@@ -162,17 +162,22 @@ def capacity_assign(probabilities,component_mass,max_size=100):
                    "oversized_component_indices":oversized,"capacity_respected_for_assignable_components":bool(np.all(assignable_loads<=max_size))}
 
 
-def size_penalty(new_raw_mass,lambda1=.02,lambda2=.10):
-    """Approved SCRAC penalty on proposed represented raw-row mass."""
-    n=float(new_raw_mass)
-    return float(lambda1*np.log1p(n/50.)+lambda2*(max(0.,n-100.)/100.)**2)
+def size_penalty(new_group_size,capacity=200,lambda_size=.20):
+    """Cubic penalty based on proposed member count, not represented raw-row mass."""
+    n=float(new_group_size); cap=int(capacity); lam=float(lambda_size)
+    if cap<1 or lam<0 or n<0: raise ValueError("invalid size-penalty parameters")
+    return float(lam*(n/cap)**3)
 
-def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assignments,threshold=.85):
-    """Complete-Link plus size-regularized assignment; every component is retained."""
+
+def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assignments,
+                 threshold=.85,capacity=200,lambda_size=.20,acceptance_threshold=.75):
+    """Greedy SCRAC assignment with strict Complete-Link and hard member-count capacity."""
     P=np.asarray(probabilities,dtype=np.float64); mass=np.asarray(component_mass,dtype=np.float64)
     U=np.asarray(anchor_assignments,dtype=np.float64); anchors=np.asarray(anchor_indices,dtype=np.int64); n=len(x)
     if P.shape[0]!=n or U.shape[0]!=len(anchors) or P.shape[1]!=U.shape[1] or mass.shape!=(n,):
         raise ValueError("SCRAC assignment inputs are not aligned")
+    if capacity<1 or not 0<=acceptance_threshold<=1 or not np.isfinite(P).all():
+        raise ValueError("invalid SCRAC capacity, threshold, or probabilities")
     groups=[]; seeds=[]; used=set()
     for j in range(P.shape[1]):
         for ai in np.argsort(-U[:,j],kind="stable"):
@@ -182,40 +187,53 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
     if not groups: raise ValueError("SC-FAGC did not provide any group anchors")
     remaining=np.asarray([i for i in range(n) if i not in used],dtype=np.int64)
     confidence=np.max(P,axis=1); remaining=remaining[np.argsort(-confidence[remaining],kind="stable")]
-    unassigned=[]; records=[]
+    records=[]; opened=[]
     def score(i,gid):
         members=np.asarray(groups[gid],dtype=np.int64)
+        proposed_size=len(members)+1
+        if proposed_size>capacity: return None
         sim=mixed_similarity(x[i:i+1],b[i:i+1],c[i:i+1],x[members],b[members],c[members]).ravel()
         smin=float(sim.min())
         if not smin>threshold: return None
         smean=float(sim.mean())
         sa=float(mixed_similarity(x[i:i+1],b[i:i+1],c[i:i+1],x[seeds[gid]:seeds[gid]+1],
                                   b[seeds[gid]:seeds[gid]+1],c[seeds[gid]:seeds[gid]+1])[0,0])
-        new_mass=float(mass[members].sum()+mass[i]); penalty=size_penalty(len(members)+1)
-        return .4*sa+.3*smean+.3*smin-penalty,{"anchor":sa,"mean":smean,"minimum":smin,"new_raw_mass":new_mass,"penalty":penalty}
+        penalty=size_penalty(proposed_size,capacity,lambda_size)
+        value=.4*sa+.3*smean+.3*smin-penalty
+        return value,{"anchor_similarity":sa,"mean_similarity":smean,"minimum_similarity":smin,
+                      "proposed_group_size":proposed_size,"size_penalty":penalty}
     for i in remaining:
         options=[]
         for gid in range(len(groups)):
             item=score(int(i),int(gid))
             if item is not None: options.append((item[0],int(gid),item[1]))
-        if options and max(z[0] for z in options)>=.75:
-            options.sort(key=lambda z:(-z[0],z[1])); value,gid,parts=options[0]
-            groups[gid].append(int(i)); records.append({"component":int(i),"group":gid,"score":float(value),**parts})
-        else:
-            groups.append([int(i)]); seeds.append(int(i)); unassigned.append(int(i))
-    recovered=[]
-    recovered=[i for i in unassigned if len(groups[seeds.index(i)])==1]
-    labels=np.empty(n,dtype=np.int64)
-    for gid,members in enumerate(groups): labels[np.asarray(members,dtype=np.int64)]=gid
+        if options:
+            options.sort(key=lambda z:(-z[0],z[1]))
+            value,gid,parts=options[0]
+            if value>=acceptance_threshold:
+                groups[gid].append(int(i))
+                records.append({"component":int(i),"group":gid,"score":float(value),**parts})
+                continue
+        groups.append([int(i)]); seeds.append(int(i)); opened.append(int(i))
+    labels=np.full(n,-1,dtype=np.int64)
+    for gid,members in enumerate(groups):
+        labels[np.asarray(members,dtype=np.int64)]=gid
+    sizes=[len(g) for g in groups]
     group_mass=[int(mass[np.asarray(g,dtype=np.int64)].sum()) for g in groups]
-    return labels,{"groups":len(groups),"group_mass":group_mass,"group_sizes":[len(g) for g in groups],"opened_groups":len(unassigned),"max_group_mass":max(group_mass,default=0),
-      "oversized_groups":int(sum(v>100 for v in group_mass)),"recovered_singleton_components":recovered,
-      "recovered_singleton_count":len(recovered),"complete_link_threshold":float(threshold),"comparison":"strict_greater_than",
-      "size_penalty":"0.02*ln(1+n/50)+0.10*(max(0,n-100)/100)^2",
-      "score":"0.4*S_anchor+0.3*S_mean+0.3*S_min-P(new_group_size)","score_records":records}
+    return labels,{"groups":len(groups),"group_sizes":sizes,"group_mass_raw_rows":group_mass,
+      "opened_groups":len(opened),"opened_group_seed_indices":opened,
+      "max_group_size":max(sizes,default=0),"capacity":int(capacity),
+      "capacity_violations":int(sum(v>capacity for v in sizes)),
+      "groups_at_capacity":int(sum(v==capacity for v in sizes)),
+      "singleton_groups":int(sum(v==1 for v in sizes)),
+      "complete_link_threshold":float(threshold),"comparison":"strict_greater_than",
+      "size_penalty_formula":"lambda_size * (proposed_group_size / capacity)^3",
+      "lambda_size":float(lambda_size),"acceptance_threshold":float(acceptance_threshold),
+      "score_formula":"0.4*S_anchor+0.3*S_mean+0.3*S_min-P(proposed_group_size)",
+      "score_records":records}
 
 
-def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=100,anchor_k=5,anchor_threshold=.85,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42):
+def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=200,anchor_k=5,anchor_threshold=.85,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42,scrac_capacity=200,scrac_lambda=.20,scrac_acceptance=.75):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
     # Cluster count is a controllable SC-FAGC hyperparameter; sqrt(n) is only
     # a bounded default heuristic. Final raw-mass capacity is enforced below.
@@ -238,25 +256,25 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     U,opt=sc_fagc(B,anchor_mass,n_clusters,lower,upper,epsilon,max_iter,sinkhorn_iter)
     if not opt['converged']:
         return {'components':n,'anchors':len(anchors),'anchors_requested':requested_anchors,'initial_anchors':initial_selected_count,'anchors_after_expansion':expanded_selected_count,'zero_mass_anchors_removed':selected_anchors-len(anchors),'redundant_initial_anchors_not_selected':requested_anchors-initial_selected_count,'anchor_expansion':anchor_expansion,'optimization':opt,'status':'optimization_not_validated','assignment':list(range(n)),'probabilities':np.asarray(B@U).tolist(),'anchor_indices':anchors.tolist()}
-    probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U)
+    probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U,capacity=scrac_capacity,lambda_size=scrac_lambda,acceptance_threshold=scrac_acceptance)
     return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":initial_selected_count,"anchors_after_expansion":expanded_selected_count,"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_initial_anchors_not_selected":requested_anchors-initial_selected_count,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
-            "component_mass_max":int(mass.max()),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
+            "component_mass_max":int(mass.max()),"scrac_capacity":int(scrac_capacity),"scrac_lambda":float(scrac_lambda),"scrac_acceptance_threshold":float(scrac_acceptance),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
             "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),
             "method_notes":["SC-FAGC IRW and entropy-regularized DB-OT operate on existing graph components.",
              "Deterministic farthest-first medoids replace the paper's BKHK anchor generator; this is an explicit adaptation.",
              "SCRAC Complete-Link requires minimum mixed similarity strictly above 0.85.",
-             "Size penalty is 0.02*ln(1+n/50)+0.10*(max(0,n-100)/100)^2 on proposed group member count.",
+             "SCRAC cubic size penalty uses proposed member count: lambda*(n/capacity)^3; hard capacity is enforced independently.",
              "Unmatched components are retained as standalone groups; no source component is discarded."]}
 
 def main():
     p=argparse.ArgumentParser(description=__doc__); p.add_argument("--input",type=Path,required=True); p.add_argument("--output",type=Path,required=True)
-    p.add_argument("--anchors",type=int,default=None); p.add_argument("--clusters",type=int,default=None); p.add_argument("--capacity",type=int,default=100)
+    p.add_argument("--anchors",type=int,default=None); p.add_argument("--clusters",type=int,default=None); p.add_argument("--capacity",type=int,default=200); p.add_argument("--lambda-size",type=float,default=.20); p.add_argument("--acceptance-threshold",type=float,default=.75)
     p.add_argument("--anchor-k",type=int,default=5); p.add_argument("--anchor-threshold",type=float,default=.85); p.add_argument("--epsilon",type=float,default=.01); p.add_argument("--max-iter",type=int,default=100); p.add_argument("--sinkhorn-iter",type=int,default=1000)
     a=p.parse_args()
     with np.load(a.input,allow_pickle=False) as f:
         result=run(f["x"],f["b"],f["c"],f["component_mass"],n_anchors=a.anchors,n_clusters=a.clusters,
-                   max_component_group_mass=a.capacity,anchor_k=a.anchor_k,anchor_threshold=a.anchor_threshold,epsilon=a.epsilon,max_iter=a.max_iter,sinkhorn_iter=a.sinkhorn_iter)
+                   max_component_group_mass=a.capacity,anchor_k=a.anchor_k,anchor_threshold=a.anchor_threshold,epsilon=a.epsilon,max_iter=a.max_iter,sinkhorn_iter=a.sinkhorn_iter,scrac_capacity=a.capacity,scrac_lambda=a.lambda_size,scrac_acceptance=a.acceptance_threshold)
     a.output.parent.mkdir(parents=True,exist_ok=True); a.output.write_text(json.dumps(result,indent=2,allow_nan=False),encoding="utf-8")
     print(json.dumps({k:v for k,v in result.items() if k not in ("assignment","probabilities","anchor_indices")},indent=2))
 
