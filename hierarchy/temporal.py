@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import time
-from collections import Counter
 from pathlib import Path
 
 import numpy as np
@@ -36,9 +36,9 @@ def _validate_atoms(x, b, c, mass, period, chunk_id):
         raise ValueError("all atom arrays must have aligned rows")
     if n == 0 or not np.isfinite(x).all() or not np.isfinite(mass).all() or np.any(mass <= 0):
         raise ValueError("atoms must be non-empty with finite features and positive mass")
-    if not np.all(np.char.match(period, r"^\\d{4}-\\d{2}-\\d{2}$")):
+    if not all(re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", value) for value in period):
         raise ValueError("period values must be ISO dates YYYY-MM-DD")
-    if not np.all(np.char.match(chunk_id, r"^.+$")):
+    if not all(value.strip() for value in chunk_id):
         raise ValueError("chunk_id cannot be empty")
     return x, b, c, mass, period, chunk_id
 
