@@ -170,10 +170,15 @@ def size_penalty(new_group_size,capacity=200,lambda_size=.20):
 
 
 def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assignments,
-                 threshold=.85,capacity=200,lambda_size=.20,acceptance_threshold=.75):
-    """Greedy SCRAC assignment with strict Complete-Link and hard member-count capacity."""
+                 threshold=.85,capacity=200,lambda_size=.20,acceptance_threshold=.75,
+                 topology_labels=None):
+    """Greedy SCRAC with Complete-Link, capacity, and optional original-CC isolation."""
     P=np.asarray(probabilities,dtype=np.float64); mass=np.asarray(component_mass,dtype=np.float64)
     U=np.asarray(anchor_assignments,dtype=np.float64); anchors=np.asarray(anchor_indices,dtype=np.int64); n=len(x)
+    if topology_labels is not None:
+        topology_labels=np.asarray(topology_labels,dtype=np.int64)
+        if topology_labels.shape!=(n,) or np.any(topology_labels<0):
+            raise ValueError("topology_labels must contain one nonnegative component id per node")
     if P.shape[0]!=n or U.shape[0]!=len(anchors) or P.shape[1]!=U.shape[1] or mass.shape!=(n,):
         raise ValueError("SCRAC assignment inputs are not aligned")
     if capacity<1 or not 0<=acceptance_threshold<=1 or not np.isfinite(P).all():
@@ -187,9 +192,13 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
     if not groups: raise ValueError("SC-FAGC did not provide any group anchors")
     remaining=np.asarray([i for i in range(n) if i not in used],dtype=np.int64)
     confidence=np.max(P,axis=1); remaining=remaining[np.argsort(-confidence[remaining],kind="stable")]
-    records=[]; opened=[]
+    records=[]; opened=[]; blocked_topology_checks=0
     def score(i,gid):
+        nonlocal blocked_topology_checks
         members=np.asarray(groups[gid],dtype=np.int64)
+        if topology_labels is not None and topology_labels[i] != topology_labels[seeds[gid]]:
+            blocked_topology_checks += 1
+            return None
         proposed_size=len(members)+1
         if proposed_size>capacity: return None
         sim=mixed_similarity(x[i:i+1],b[i:i+1],c[i:i+1],x[members],b[members],c[members]).ravel()
@@ -220,6 +229,10 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
         labels[np.asarray(members,dtype=np.int64)]=gid
     sizes=[len(g) for g in groups]
     group_mass=[int(mass[np.asarray(g,dtype=np.int64)].sum()) for g in groups]
+    mixed_topology_groups = (
+        int(sum(np.unique(topology_labels[np.asarray(g, dtype=np.int64)]).size > 1 for g in groups))
+        if topology_labels is not None else None
+    )
     return labels,{"groups":len(groups),"group_sizes":sizes,"group_mass_raw_rows":group_mass,
       "opened_groups":len(opened),"opened_group_seed_indices":opened,
       "max_group_size":max(sizes,default=0),"capacity":int(capacity),
@@ -232,11 +245,19 @@ def scrac_assign(x,b,c,component_mass,probabilities,anchor_indices,anchor_assign
       "size_penalty_formula":"lambda_size * (proposed_group_size / capacity)^3",
       "lambda_size":float(lambda_size),"acceptance_threshold":float(acceptance_threshold),
       "score_formula":"0.4*S_anchor+0.3*S_mean+0.3*S_min-P(proposed_group_size)",
+      "topology_constraint_enabled":topology_labels is not None,
+      "original_connected_component_count":int(np.unique(topology_labels).size) if topology_labels is not None else None,
+      "blocked_cross_component_group_checks":int(blocked_topology_checks),
+      "groups_spanning_multiple_original_components":mixed_topology_groups,
       "score_records":records}
 
 
-def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=200,anchor_k=5,anchor_threshold=.85,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42,scrac_capacity=200,scrac_lambda=.20,scrac_acceptance=.75):
+def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_mass=200,anchor_k=5,anchor_threshold=.85,epsilon=.01,max_iter=100,sinkhorn_iter=1000,seed=42,scrac_capacity=200,scrac_lambda=.20,scrac_acceptance=.75,topology_labels=None):
     x,b,c,mass=_validate_features(x,b,c,component_mass); n=len(x)
+    if topology_labels is not None:
+        topology_labels=np.asarray(topology_labels,dtype=np.int64)
+        if topology_labels.shape!=(n,) or np.any(topology_labels<0):
+            raise ValueError("topology_labels must contain one nonnegative component id per node")
     # Cluster count is a controllable SC-FAGC hyperparameter; sqrt(n) is only
     # a bounded default heuristic. Final raw-mass capacity is enforced below.
     n_clusters=n_clusters or min(n,32,max(1,int(np.ceil(np.sqrt(n)))))
@@ -258,8 +279,8 @@ def run(x,b,c,component_mass,n_anchors=None,n_clusters=None,max_component_group_
     U,opt=sc_fagc(B,anchor_mass,n_clusters,lower,upper,epsilon,max_iter,sinkhorn_iter)
     if not opt['converged']:
         return {'components':n,'anchors':len(anchors),'anchors_requested':requested_anchors,'initial_anchors':initial_selected_count,'anchors_after_expansion':expanded_selected_count,'zero_mass_anchors_removed':selected_anchors-len(anchors),'redundant_initial_anchors_not_selected':requested_anchors-initial_selected_count,'anchor_expansion':anchor_expansion,'optimization':opt,'status':'optimization_not_validated','assignment':list(range(n)),'probabilities':np.asarray(B@U).tolist(),'anchor_indices':anchors.tolist()}
-    probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U,capacity=scrac_capacity,lambda_size=scrac_lambda,acceptance_threshold=scrac_acceptance)
-    return {"components":n,"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":initial_selected_count,"anchors_after_expansion":expanded_selected_count,"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_initial_anchors_not_selected":requested_anchors-initial_selected_count,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
+    probabilities=np.asarray(B@U); labels,scrac=scrac_assign(x,b,c,mass,probabilities,anchors,U,capacity=scrac_capacity,lambda_size=scrac_lambda,acceptance_threshold=scrac_acceptance,topology_labels=topology_labels)
+    return {"components":n,"topology_constraint":{"enabled":topology_labels is not None,"original_connected_components":int(np.unique(topology_labels).size) if topology_labels is not None else None,"policy":"candidate may join a group only when it shares the seed's original connected-component id" if topology_labels is not None else "disabled"},"anchors":len(anchors),"clusters_requested":requested_clusters,"clusters_effective":n_clusters,"anchors_requested":requested_anchors,"initial_anchors":initial_selected_count,"anchors_after_expansion":expanded_selected_count,"zero_mass_anchors_removed":selected_anchors-len(anchors),"redundant_initial_anchors_not_selected":requested_anchors-initial_selected_count,"anchor_expansion":anchor_expansion,"anchor_external_support":(np.asarray(B.getnnz(axis=0)).ravel()-1).tolist(),"represented_raw_rows":int(mass.sum()),"anchor_threshold":float(anchor_threshold),
             "component_mass_max":int(mass.max()),"scrac_capacity":int(scrac_capacity),"scrac_lambda":float(scrac_lambda),"scrac_acceptance_threshold":float(scrac_acceptance),"anchor_mass_lower_bound":lower,"anchor_mass_upper_bound":upper,
             "optimization":opt,"scrac_assignment":scrac,"unassigned_components":int(np.count_nonzero(labels<0)),
             "assignment":labels.tolist(),"probabilities":probabilities.tolist(),"anchor_indices":anchors.tolist(),

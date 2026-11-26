@@ -134,3 +134,89 @@ The initial 5% anchor budget is a starting seed, not a cap. Each component is co
 - Labels are never used in model fitting or assignment. Original mapping artifacts are required; nodes.npz and components.npz alone do not preserve per-raw-row source partition.
 - Run: `python -m scripts.audit_scrac_label_mix --mapping-dir artifacts/graph/pilot --components artifacts/graph/components/components.npz --assignment-report artifacts/graph/sc_fagc/report_cubic200.json --output artifacts/graph/sc_fagc/label_mix_cubic200.json`.
 - Validation status: synthetic tests added; local execution on the user's real pilot artifacts is pending.
+
+
+## End-to-end project status (2026-11-25)
+
+```mermaid
+flowchart TD
+ A[Historical Parquet] --> B[Canonical reader and data audit]
+ B --> C[Train-fitted preprocessing: robust scaling + ZCA]
+ C --> D[Label-blind 10% representative reduction]
+ D --> E[Chronological mixed sparse graph]
+ E --> F[Coverage-first + Weight-first edge allocation]
+ F --> G[Connected components and component audit]
+ G --> H[SC-FAGC anchors + weighted DB-OT]
+ H --> I[SCRAC Complete-Link grouping]
+ I --> J[Post-hoc label-mix audit]
+ I --> K[Stage 4.3 structural diagnostics]
+ K --> L[Local structure-preserving refinement]
+ L --> M[Compression acceptance]
+ M --> N[Hierarchy / downstream modeling / evaluation]
+```
+
+### Current position: Stage 4.2 completed; Stage 4.3 next
+
+Completed and reviewed on the 50k pilot (2026-11-25): 5000 graph representative nodes representing 50000 raw rows from logical day 2026-06-21. Node-level SCRAC avoids treating a giant connected component as indivisible. SC-FAGC ran once for the six-configuration sweep and converged in 216 iterations. Total sweep runtime was 898.614 seconds including the shared SC-FAGC pass; individual SCRAC runs took approximately 121.8-123.1 seconds. Final groups: 388-390; singletons: 13-14; largest group: 174-200 representative nodes; zero capacity violations. All 5000 nodes assigned and 50000 raw rows conserved. Clustering reads mapping node indices only for represented mass and does not read source partition labels. Separate post-hoc audit found 17735 attack and 32265 normal raw rows.
+
+### SCRAC sensitivity results
+
+| Acceptance | Cubic lambda | Groups | Mixed groups | Macro impurity | Raw-row weighted impurity |
+|---:|---:|---:|---:|---:|---:|
+| 0.75 | 0.20 | 388 | 23 | 0.8055% | 1.996% |
+| 0.75 | 0.30 | 390 | 25 | 0.8680% | 1.968% |
+| 0.78 | 0.20 | 389 | 23 | 0.8020% | 1.954% |
+| 0.78 | 0.30 | 390 | 25 | 0.8211% | 2.000% |
+| 0.80 | 0.20 | 389 | 23 | 0.8019% | 1.954% |
+| 0.80 | 0.30 | 390 | 24 | 0.8190% | 2.000% |
+
+Mixed groups are accepted as a natural possible outcome of unsupervised mathematical compression; zero mixed groups is explicitly not an objective. Labels must not be used to select anchors, construct similarities, assign or refine groups. The 0.78/0.20 setting is only a modest candidate; 0.78/0.20 and 0.80/0.20 are effectively tied. Lambda 0.30 is not supported. Do not change production defaults yet.
+
+### Stage 4.3 — next active phase: structural diagnostics
+
+Planned, not implemented. Measure within-group similarity distributions (minimum, p05, median, mean, p95), independently verify Complete-Link, measure feature-wise similarity contributions, cohesion/dispersion, medoid/centrality, boundary members, and pre/post graph structural preservation. Test order sensitivity with multiple deterministic permutations and label-free partition agreement. Only after diagnostics, design bounded local refinement that preserves capacity and Complete-Link while improving a graph-structure objective. Keep baseline outputs immutable and report runtime/memory.
+
+Acceptance gates: all 5000 nodes assigned; raw-row mass conserved; capacity <=200; every within-group pair strictly >0.85; no label input; graph structure preservation measured; runtime and memory reported. Full-day run and independent day replication remain pending.
+
+
+## Stage 4.3.1 — label-blind structural audit implementation
+
+Added `scripts/evaluate_scrac_structure.py` and `tests/test_scrac_structure.py`.
+
+The evaluator consumes the node feature artifact (`x,b,c`) and one node-level SCRAC assignment JSON. It independently recomputes every within-group pair using the project's exact mixed-similarity implementation (0.6 continuous cosine + 0.4 discrete agreement), and reports min/p05/median/mean/p95/max/std for total similarity and each contribution. Per-group output includes Complete-Link validity and violating-pair count, medoid node, medoid mean similarity, five weakest-link boundary members, and group size. It also checks assignment coverage and hard member capacity.
+
+Optional `--graph adjacency.npz` loads the original symmetric CSR graph and reports intra-/inter-group edge counts and weight fractions plus a sparse quotient graph between final groups. This measures how much of the original graph's edge mass is internalized or retained between groups; it does not claim that every original edge must remain an inter-group edge.
+
+The evaluator is strictly label-blind: it does not open mapping files, source paths, or attack/normal labels. It does not modify nodes, assignments, or graph artifacts. It writes a detailed JSON report with per-group profiles and prints a compact summary.
+
+Run the test:
+`python -m pytest tests/test_scrac_structure.py -q`
+
+Run the structural audit for the selected 0.78 / 0.20 candidate:
+`python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
+
+For baseline comparison, run the same command with `accept_0p750_lambda_0p200.json` and a distinct output filename. Do not select a new SCRAC configuration from class-mix metrics; use the structural report and hard constraints. Stage 4.3 refinement is not implemented until these reports are reviewed.
+
+
+## Stage 4.4 — SCRAC topology-preservation audit
+
+Added `scripts/evaluate_scrac_topology.py` and `tests/test_scrac_topology.py`. The evaluator reads only the original sparse symmetric `adjacency.npz` and node-level SCRAC assignment JSON. It builds weighted quotient matrix `Q = H^T A H`, retaining internal edge weight on the diagonal, and reports edge/weight partition, inter-group quotient edges, exact aggregate degree-volume conservation, weighted modularity, per-group conductance, original and quotient connected-component counts, SCRAC groups spanning multiple original connected components, and low-end normalized-Laplacian eigenvalues. Spectral comparison is explicitly diagnostic because the operators have different dimensions. No labels, mapping files, source paths or raw flow records are read. Inputs are read-only.
+
+Run test:
+`python -m pytest tests/test_scrac_topology.py -q --basetemp=.pytest_tmp`
+
+Run candidate 0.78:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p780_0p200.json`
+
+Run baseline 0.75 by substituting the matching assignment report and output filename.
+
+## Final compression and hierarchy architecture (design only)
+
+Keep the original graph immutable. Freeze a validated SCRAC partition, build a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create additional levels only through deterministic label-blind contractions. Each level must retain reversible child-to-parent mappings and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs and source graph/version hash). A candidate merge must pass structural compatibility, capacity and connectivity safeguards plus cumulative distortion checks. Validate every level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is one additional hierarchy level on the 5k pilot; full-day processing is blocked pending topology and reconstruction results.
+
+
+## Stage 4.4.1 — topology-constrained SCRAC experiment
+
+The optional `topology_labels` argument in `graph.sc_fagc.scrac_assign` and `graph.sc_fagc.run` gates each candidate-group option against the seed's original connected-component ID. `graph.node_scrac.main` derives these IDs from the original sparse adjacency when `--adjacency` is supplied, writes a separate local component-ID artifact, and passes IDs into SCRAC. Without `--adjacency`, prior behavior is unchanged. The rule is label-blind and preserves every node; it prevents a contraction group from spanning disconnected original components but does not force separate components to become connected.
+
+Synthetic test: `tests/test_scrac_topology_constraint.py`. Real-data evaluation remains pending.

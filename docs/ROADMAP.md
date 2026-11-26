@@ -71,3 +71,58 @@ Stage 4.1 correction: max-nearest-similarity farthest-first, redundant anchor st
 ## Adaptive anchor expansion (2026-11-25)
 
 The initial 5% anchor budget is a starting seed, not a cap. Each component is compared against current anchors using the configured mixed-similarity threshold (default 0.85). If at least one existing anchor has similarity strictly greater than the threshold, the component is assigned to its nearest qualifying anchors (up to anchor-k). Otherwise the component becomes a new anchor and can represent later components. The bipartite matrix is sparse; each row sums to one and anchor rows self-assign. Reports distinguish initial coverage, components requiring new anchors, number of newly created anchors, final anchor count, and each creation reason. Threshold is an experimental hyperparameter and must be evaluated separately from SCRAC Complete-Link.
+
+
+## Stage 4.2 — node-level SC-FAGC + SCRAC pilot (2026-11-25)
+
+Implemented and executed on the 50k chronological pilot. Each of 5000 graph representative nodes is one SCRAC input member, avoiding a giant pre-existing connected component as an indivisible assignment atom. Mapping node indices are used only to count represented raw-row mass; source paths and attack/normal labels are not read during clustering.
+
+SC-FAGC was computed once and reused for six SCRAC configurations; it converged in 216 iterations. Six SCRAC runs completed in 898.614 seconds total including the shared SC-FAGC pass; per-run SCRAC took approximately 121.8-123.1 seconds. All configurations assigned 5000/5000 nodes and conserved 50000 raw rows. Group counts 388-390, singleton counts 13-14, maximum group size 174-200, capacity violations zero.
+
+Post-hoc audit only: 17735 attack rows and 32265 normal rows. Baseline 0.75/0.20: 388 groups, 23 mixed, macro impurity 0.8055%, weighted impurity 1.996%. Candidate 0.78/0.20: 389 groups, 23 mixed, macro 0.8020%, weighted 1.954%. Candidate 0.80/0.20: 389 groups, 23 mixed, macro 0.8019%, weighted 1.954%. Lambda 0.30 increased group count and did not improve the audit consistently. Mixed groups are acceptable; zero mixed groups is not an objective. Do not tune clustering against labels. Keep production parameters unchanged pending structural diagnostics.
+
+## Stage 4.3 — structural diagnostics and bounded refinement (next)
+
+Planned, not implemented. First measure per-group within-similarity distributions (minimum, p05, median, mean, p95), independent Complete-Link compliance, feature-wise similarity contributions, cohesion/dispersion, medoid/centrality, boundary members, and pre/post graph structural preservation. Test order sensitivity with multiple deterministic permutations and label-free partition agreement. Only then design bounded local refinement preserving capacity and Complete-Link while improving a graph-structure objective. Keep baseline outputs immutable and report runtime/memory.
+
+Acceptance gates: full node coverage; raw-row mass conservation; capacity <=200; strict within-group pair similarity >0.85; no label access; graph structure preservation measured; runtime and memory reported. Full-day run and independent day replication remain pending.
+
+
+## Stage 4.3.1 — structural quality audit (implemented; execution pending)
+
+Added a read-only, label-blind evaluator at `scripts/evaluate_scrac_structure.py` with a synthetic test at `tests/test_scrac_structure.py`. It independently checks all within-group pairs against strict Complete-Link >0.85; reports pairwise mixed similarity and separate continuous/discrete contributions; computes per-group medoid, weakest-link boundary members and cohesion summaries; validates full assignment coverage and hard member capacity. When the original `adjacency.npz` is supplied, it also reports intra-/inter-group edge and weight fractions and the inter-group quotient graph.
+
+No mapping files or attack/normal labels are read. The evaluator is read-only and does not alter SCRAC output. Test and real-pilot execution have not yet been run by the user.
+
+Run:
+`python -m pytest tests/test_scrac_structure.py -q`
+
+Run candidate 0.78/0.20:
+`python -m scripts.evaluate_scrac_structure --nodes artifacts/graph/pilot_50k/nodes.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --graph artifacts/graph/pilot_50k/adjacency.npz --threshold 0.85 --capacity 200 --output artifacts/graph/sc_fagc/scrac_sweep_50k/structural_0p780_0p200.json`
+
+Run baseline 0.75/0.20 with the same command and output path `structural_0p750_0p200.json`. Review both reports before implementing any structural refinement.
+
+
+## Stage 4.4 — topology preservation audit (implemented; execution pending)
+
+Added `scripts/evaluate_scrac_topology.py` and `tests/test_scrac_topology.py`. This is a read-only, label-blind audit of the fixed SCRAC partition against the original sparse adjacency. It builds the weighted quotient matrix, checks edge/weight and aggregate degree-volume conservation, computes weighted modularity and group conductance, detects SCRAC groups that merge nodes from distinct original connected components, and compares low normalized-Laplacian eigenvalues diagnostically. No mapping, source paths, raw flow rows or attack/normal labels are read. Synthetic tests are added but have not been executed in the user's environment.
+
+Test:
+`python -m pytest tests/test_scrac_topology.py -q --basetemp=.pytest_tmp`
+
+0.78:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p780_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p780_0p200.json`
+
+0.75:
+`python -m scripts.evaluate_scrac_topology --graph artifacts/graph/pilot_50k/adjacency.npz --assignment-report artifacts/graph/sc_fagc/scrac_sweep_50k/accept_0p750_lambda_0p200.json --spectral-k 20 --output artifacts/graph/sc_fagc/scrac_sweep_50k/topology_0p750_0p200.json`
+
+### Final compression and hierarchy — architecture approved for pilot design, not implemented
+
+Keep the original graph immutable. Freeze a validated SCRAC partition, construct a weighted quotient graph with internal edge mass on its diagonal and aggregated inter-group edges, then create further levels only by deterministic label-blind contractions. Every parent must retain reversible child-to-parent maps and sufficient statistics (member count, internal weight, cut weight, degree volume, child IDs, source graph/version hash). A merge must pass structural compatibility, capacity and connectivity safeguards plus explicit cumulative distortion checks. Validate each level against the original graph; stop when marginal compression gain no longer justifies structural loss. First prototype is limited to one extra hierarchy level on the 5k pilot; full-day processing remains blocked pending topology and reconstruction results.
+
+
+## Stage 4.4.1 — topology-constrained SCRAC experiment (implementation; real-data run pending)
+
+A label-blind hard eligibility constraint is added as an opt-in experiment. When original connected-component IDs are supplied, a candidate may join a SCRAC group only if it has the same original connected-component ID as that group's seed. Complete-Link >0.85 and capacity 200 remain independently enforced. The constraint does not force connectivity between distinct original components, does not alter the original adjacency, and does not use attack/normal labels. Default behavior remains unchanged when IDs are omitted.
+
+`graph.node_scrac` accepts `--adjacency` and derives IDs from the original CSR using `scipy.sparse.csgraph.connected_components`; it writes a separate local `*_topology_components.npz` provenance artifact. Compare baseline 0.75/0.20 with this constrained run using identical nodes, mappings, seed and parameters. Synthetic regression test: `tests/test_scrac_topology_constraint.py`. Local test and real 50k execution are pending. Do not enter hierarchy implementation until the constrained report passes full mapping, capacity, Complete-Link and topology gates and its quality trade-offs are reviewed.
