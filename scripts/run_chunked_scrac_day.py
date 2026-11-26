@@ -1,8 +1,7 @@
-"""Run the established representative-selection + SC-FAGC/SCRAC model independently
-for every chronological 10k-row chunk of a complete day, then build daily/monthly/
-yearly super-components from the resulting chunk SCRAC groups.
+"""Run the established representative-selection + direct SCRAC model independently
+for every chronological 10k-row chunk of a complete day, then build daily super-components from the resulting chunk SCRAC groups.
 
-No source partition/attack labels are read. Raw-row mass comes only from the
+Partition labels are used only for post-hoc evaluation. Raw-row mass comes only from the
 representative mapping multiplicities.
 """
 from __future__ import annotations
@@ -12,7 +11,8 @@ import numpy as np
 from scipy.sparse.csgraph import connected_components
 from graph.pilot import chunks
 from graph.sparse import build_indexed_graph
-from graph.sc_fagc import run
+from graph.direct_scrac import direct_scrac
+from scipy.sparse import save_npz
 from preprocessing.reduction import select_representatives
 from preprocessing.transform import Transform
 from hierarchy.temporal import build_temporal_hierarchy
@@ -41,64 +41,10 @@ def run_day(root, day, transform_path, output, capacity=200, sample_chunk_size=1
         adjacency,candidate_count=build_indexed_graph(rx,rb,rc,k=graph_k,cap=degree_cap,
                                                       threshold=edge_threshold)
         n_cc,topology=connected_components(adjacency,directed=False)
-        result=run(rx,rb,rc,mass,anchor_threshold=anchor_threshold,anchor_k=anchor_k,
-                   max_component_group_mass=capacity,scrac_capacity=capacity,
-                   scrac_lambda=lambda_size,scrac_acceptance=acceptance_threshold,
-                   topology_labels=topology)
-        if result.get("status") == "optimization_not_validated" or "scrac_assignment" not in result:
-            opt = result.get("optimization", {})
-            diagnostic = {
-                "status": "optimization_not_validated",
-                "day": day,
-                "chunk_id": chunk_id,
-                "raw_rows": int(len(data)),
-                "representative_nodes": int(len(rx)),
-                "components": result.get("components"),
-                "anchors": result.get("anchors"),
-                "optimization": {
-                    "converged": opt.get("converged"),
-                    "iterations": opt.get("iterations"),
-                    "sinkhorn_converged": opt.get("sinkhorn_converged"),
-                    "sinkhorn_iterations": opt.get("sinkhorn_iterations"),
-                    "row_mass_max_error": opt.get("row_mass_max_error"),
-                    "row_relative_error": opt.get("row_relative_error"),
-                    "column_relative_error": opt.get("column_relative_error"),
-                    "column_mass_min": opt.get("column_mass_min"),
-                    "column_mass_max": opt.get("column_mass_max"),
-                    "objective_history": opt.get("objective_history"),
-                },
-                "anchor_expansion": result.get("anchor_expansion"),
-                "anchor_counts": {
-                    "requested": result.get("anchors_requested"),
-                    "initial": result.get("initial_anchors"),
-                    "after_expansion": result.get("anchors_after_expansion"),
-                    "zero_mass_removed": result.get("zero_mass_anchors_removed"),
-                },
-            }
-            diagnostic_path = output / f"{chunk_id}_optimization_diagnostic.json"
-            diagnostic_path.write_text(
-                json.dumps(diagnostic, indent=2, allow_nan=False),
-                encoding="utf-8"
-            )
-            failure_report = {
-                "status": "optimization_not_validated",
-                "day": day,
-                "failed_chunk": chunk_id,
-                "completed_chunks": summaries,
-                "diagnostic": str(diagnostic_path),
-                "runtime_seconds": round(time.perf_counter() - started, 3),
-                "label_blind": True,
-            }
-            (output / "failure_report.json").write_text(
-                json.dumps(failure_report, indent=2, allow_nan=False),
-                encoding="utf-8"
-            )
-            print(json.dumps(diagnostic, indent=2))
-            raise RuntimeError(
-                f"{chunk_id}: SC-FAGC optimization not validated; "
-                f"diagnostic saved to {diagnostic_path}"
-            )
-        assignment=np.asarray(result["assignment"],dtype=np.int64)
+        assignment, stats = direct_scrac(rx, rb, rc, mass, threshold=anchor_threshold,
+                                         capacity=capacity, lambda_size=lambda_size,
+                                         acceptance_threshold=acceptance_threshold,
+                                         topology_labels=topology, seed=42+chunk_index)
         if assignment.shape!=(len(rx),) or np.any(assignment<0):
             raise RuntimeError(f"{chunk_id}: incomplete SCRAC assignment")
         sizes=np.bincount(assignment)
@@ -107,6 +53,21 @@ def run_day(root, day, transform_path, output, capacity=200, sample_chunk_size=1
         folder=chunk_root/chunk_id; folder.mkdir(parents=True,exist_ok=True)
         nodes_path=folder/"nodes.npz"; scrac_path=folder/"scrac.npz"
         np.savez_compressed(nodes_path,x=rx,b=rb,c=rc)
+        save_npz(folder/"adjacency.npz", adjacency)
+        mapping = np.searchsorted(rep_ids, selected["assignment"])
+        np.savez_compressed(folder/"mapping.npz", source=source, offset=offset,
+                            node=mapping, similarity=selected["similarity"],
+                            covered=selected["covered"], representative_rows=rep_ids,
+                            multiplicity=mass)
+        # Partition metadata is consulted only after assignments are final.
+        attacks = np.asarray(["/type=attacks/" in ("/"+str(p).replace(chr(92),"/")) for p in source])
+        raw_groups = assignment[mapping]
+        attack_counts = np.bincount(raw_groups, weights=attacks.astype(int), minlength=len(sizes)).astype(int)
+        raw_counts = np.bincount(raw_groups, minlength=len(sizes))
+        stats["posthoc_attack_rows"] = attack_counts.tolist()
+        stats["posthoc_normal_rows"] = (raw_counts-attack_counts).tolist()
+        stats["posthoc_mixed_groups"] = int(np.count_nonzero((attack_counts>0)&(attack_counts<raw_counts)))
+        stats["raw_coverage"] = float(np.mean(selected["covered"]))
         np.savez_compressed(scrac_path,assignment=assignment,component_mass=mass)
         manifest_chunks.append({"chunk_id":chunk_id,"period":day,
                                 "nodes":str(nodes_path.resolve()),"scrac":str(scrac_path.resolve())})
@@ -114,8 +75,7 @@ def run_day(root, day, transform_path, output, capacity=200, sample_chunk_size=1
                           "representative_nodes":int(len(rx)),"candidate_edges":int(candidate_count),
                           "connected_components":int(n_cc),"scrac_groups":int(len(sizes)),
                           "max_group_size":int(sizes.max()),"singleton_groups":int(np.count_nonzero(sizes==1)),
-                          "runtime_seconds":result.get("runtime_seconds"),
-                          "optimization":result.get("optimization")})
+                          "scrac":stats})
         total_rows+=len(data); total_representatives+=len(rx)
     if not manifest_chunks: raise ValueError(f"no records found for day {day}")
     manifest_path=output/"chunks.json"
@@ -133,15 +93,26 @@ def run_day(root, day, transform_path, output, capacity=200, sample_chunk_size=1
                         period=np.asarray(periods,dtype="U10"),chunk_id=np.asarray(chunk_ids,dtype=str))
     hierarchy=build_temporal_hierarchy(ax,ab,ac,am,np.asarray(periods),np.asarray(chunk_ids),
                                        similarity_threshold=temporal_threshold,
-                                       max_child_components=capacity,block_size=block_size)
+                                       max_child_components=capacity,block_size=block_size, lambda_size=lambda_size,
+                                       acceptance_threshold=acceptance_threshold, levels=("day",))
     hierarchy_path=output/"hierarchy.json"
     hierarchy_path.write_text(json.dumps(hierarchy,indent=2,allow_nan=False),encoding="utf-8")
-    report={"status":"completed","day":day,"label_blind":True,"labels_read":False,
+    daily = hierarchy["levels"]["day"]
+    atom_attacks = np.concatenate([r["scrac"]["posthoc_attack_rows"] for r in summaries])
+    for group in daily:
+        ids = group["child_component_indices"]
+        group["posthoc_attack_rows"] = int(atom_attacks[ids].sum())
+        group["posthoc_normal_rows"] = int(group["represented_raw_rows"]) - group["posthoc_attack_rows"]
+    hierarchy_path.write_text(json.dumps(hierarchy,indent=2,allow_nan=False),encoding="utf-8")
+    report={"status":"completed","day":day,"label_blind":True,"labels_read":True,"labels_used_for_grouping":False,
             "raw_rows":int(total_rows),"chunk_count":len(summaries),
             "representative_nodes":int(total_representatives),
             "chunk_scrac_output_components":int(len(ax)),
             "daily_supercomponents":int(hierarchy["levels"]["day_summary"]["total_output"]),
-            "capacity":int(capacity),"chunk_results":summaries,
+            "capacity":int(capacity),"method":"direct_scrac","chunk_results":summaries,
+            "daily_mixed_groups":sum(g["posthoc_attack_rows"]>0 and g["posthoc_normal_rows"]>0 for g in daily),
+            "daily_attack_rows":sum(g["posthoc_attack_rows"] for g in daily),
+            "daily_normal_rows":sum(g["posthoc_normal_rows"] for g in daily),
             "runtime_seconds":round(time.perf_counter()-started,3),
             "manifest":str(manifest_path),"atoms":str(atoms_path),"hierarchy":str(hierarchy_path)}
     (output/"report.json").write_text(json.dumps(report,indent=2,allow_nan=False),encoding="utf-8")

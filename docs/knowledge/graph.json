@@ -1936,6 +1936,27 @@
     {
       "date": "2026-11-25",
       "decision": "Add topology-constrained SCRAC as an opt-in experimental mode: candidate group eligibility requires the same original connected-component ID as the group's seed. Baseline behavior remains default when topology IDs are omitted. Do not promote until real-data topology, cohesion, capacity, Complete-Link, coverage, runtime and memory audits pass."
+    },
+    {
+      "date": "2026-11-26",
+      "decision": "## Direct SCRAC temporal integration (validation pending)\n`graph.direct_scrac.direct_scrac(x,b,c,mass,...)` calls `preprocessing.reduction.select_representatives`, `graph.sc_fagc.mixed_similarity` and `size_penalty`; returns contiguous assignment and group statistics. Priority seeds are considered first but may join existing groups. Dynamic group creation, strict Complete-Link, cubic score and immediate-child capacity apply at every level. `scripts.run_chunked_scrac_day.run_day` uses independent chunk graphs and topology IDs, persists adjacency and raw mappings, computes partition statistics only after assignment, and calls `hierarchy.temporal.build_temporal_hierarchy(..., levels=(\"day\",))`. Temporal hierarchy uses the same direct engine with 10% priority budget and no cross-chunk topology gate. SC-FAGC remains a comparison method. Tests: `tests/test_direct_scrac.py`, existing temporal tests; execution pending. Descriptor summaries do not guarantee leaf-level complete-link. Full month/year and structural distortion evaluation pending."
     }
-  ]
+  ],
+  "direct_scrac_integration": {
+    "status": "implemented_tests_pending",
+    "function": "graph.direct_scrac.direct_scrac",
+    "calls": [
+      "preprocessing.reduction.select_representatives",
+      "graph.sc_fagc.mixed_similarity",
+      "graph.sc_fagc.size_penalty"
+    ],
+    "callers": [
+      "scripts.run_chunked_scrac_day.run_day",
+      "hierarchy.temporal.build_temporal_hierarchy"
+    ],
+    "tests": [
+      "tests/test_direct_scrac.py",
+      "tests/test_temporal_hierarchy.py"
+    ]
+  }
 }

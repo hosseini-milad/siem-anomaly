@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 
 from graph.sc_fagc import mixed_similarity
-from preprocessing.reduction import select_representatives
+from graph.direct_scrac import direct_scrac
 
 
 LEVELS = ("day", "month", "year")
@@ -124,7 +124,8 @@ def _complete_link_groups(x, b, c, threshold, max_child_components, block_size, 
 
 def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
                              similarity_threshold=0.85, max_child_components=200,
-                             block_size=128):
+                             block_size=128, lambda_size=.20, acceptance_threshold=.75,
+                             levels=LEVELS):
     """Build daily, monthly and yearly super-components from chunk components."""
     started = time.perf_counter()
     x, b, c, mass, period, chunk_id = _validate_atoms(x, b, c, mass, period, chunk_id)
@@ -135,7 +136,9 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
                "period": period, "origin_count": np.ones(len(x), dtype=np.int64)}
     outputs = {}
     summaries = {}
-    for level in LEVELS:
+    if tuple(levels) not in (LEVELS, LEVELS[:1], LEVELS[:2]):
+        raise ValueError("levels must be a chronological prefix")
+    for level in levels:
         parent_keys = (current["period"] if level == "day"
                        else np.asarray([str(p)[:7] for p in current["period"]]) if level == "month"
                        else np.asarray([str(p)[:4] for p in current["period"]]))
@@ -144,18 +147,12 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
         records = []
         for key in sorted(np.unique(parent_keys)):
             idx = np.flatnonzero(parent_keys == key)
-            # Apply the established hybrid representative selector at each
-            # temporal parent period. Selected components receive merge priority,
-            # but every component remains in the grouping and is conserved.
-            selected = select_representatives(
+            assignment, stats = direct_scrac(
                 current["x"][idx], current["b"][idx], current["c"][idx],
-                ratio=0.10, seed=42)
-            groups, stats = _complete_link_groups(
-                current["x"][idx], current["b"][idx], current["c"][idx],
-                similarity_threshold, max_child_components, block_size,
-                priority_indices=selected["indices"])
-            stats["priority_representatives"] = int(len(selected["indices"]))
-            stats["priority_representative_ratio"] = 0.10
+                current["mass"][idx], threshold=similarity_threshold,
+                capacity=max_child_components, lambda_size=lambda_size,
+                acceptance_threshold=acceptance_threshold, anchor_ratio=.10)
+            groups = [np.flatnonzero(assignment == gid) for gid in range(stats["groups"])]
             gx, gb, gc, gm = _aggregate_descriptors(
                 current["x"][idx], current["b"][idx], current["c"][idx], current["mass"][idx], groups)
             for local_id, members in enumerate(groups):
@@ -190,7 +187,7 @@ def build_temporal_hierarchy(x, b, c, mass, period, chunk_id, *,
         "schema_version": 1, "status": "completed", "architecture": "temporal_component_super_hierarchy",
         "label_blind": True, "labels_read": False,
         "input_unit": "one component descriptor from one independently processed chunk",
-        "levels": ["chunk_components_input", "daily_supercomponents", "monthly_supercomponents", "yearly_supercomponents"],
+        "levels": ["chunk_components_input"] + [{"day":"daily_supercomponents","month":"monthly_supercomponents","year":"yearly_supercomponents"}[v] for v in levels],
         "similarity": "mixed_similarity with strict complete-link across every pair of child components",
         "similarity_threshold_strictly_greater_than": float(similarity_threshold),
         "max_child_components_per_supercomponent": int(max_child_components),
