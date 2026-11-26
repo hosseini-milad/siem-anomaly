@@ -247,3 +247,15 @@ The earlier `hierarchy/graph.py` is a graph-contraction experiment and is NOT th
 
 ## Hierarchical evaluation gate
 User accepted the direct SCRAC architecture after two daily runs; scientific fidelity remains pending. Implemented `evaluation.hierarchical_evaluation.evaluate` reading existing chunk mappings, nodes, adjacency, atoms and hierarchy plus original Parquet with frozen transform. Calls `graph.pilot.chunks`, `hierarchy.temporal._aggregate_descriptors`, `evaluation.representation.nearest` and `summarize`, `evaluation.topology.audit` and `contract`, `evaluation.compression.summarize_compression` and `distribution`. Exact global and assigned similarity to daily centroid and actual retained node nearest centroid; initial assignment baseline; all rows in 10000-row batches with bounded similarity blocks; posthoc partition statistics. Outputs evaluation.json, representatives.csv, row_scores.npz, daily_representatives.npz and sparse quotient graphs. Topology scope is observed independent chunk graphs; cross-chunk reference, path stretch, spectral distortion, rare-pattern and downstream validation pending. Storage includes provenance. Tests added in tests/test_hierarchical_evaluation.py; execution pending. No model parameters changed.
+
+
+## Behavioral representation refinement
+User accepted independent structural and behavioral mappings after two daily evaluation runs. Prior review reported near-complete global coverage (>99.9% at strict .85), lower assigned coverage, conserved quotient edge weight, unequal representative masses and possible redundancy; these are in-dataset observations, not anomaly detection or topology guarantees. Detailed local reports remain private. `refinement.run.run` consumes evaluation.json, daily_representatives.npz and row_scores.npz; calls `refinement.behavioral_mapping.refine`, `refinement.redundancy.audit`, `refinement.rare_behavior.audit`, `evaluation.representation.summarize`. Keeps structural mapping immutable, uses exact existing global scores, prefers structural assignment on ties, marks uncovered rows -1, never deletes representatives. Rare proxy: structural mass <=10; redundancy candidate: zero valid behavioral mass and nearest-other similarity >=.999. Both configurable audit parameters, not proven rarity/redundancy. Outputs report.json, representatives.csv, behavioral_mapping.npz, uncovered_rows.npz. Tests: tests/test_behavioral_refinement.py; execution pending. No SCRAC parameter or graph changes. Future representative optimization, independent rarity, spectral and path audits remain pending.
+
+```mermaid
+flowchart TD
+ E[Hierarchical evaluation] --> B[BRR mapping]
+ E --> S[Immutable structural mapping]
+ B --> R[Rarity and redundancy audit]
+ B --> U[Uncovered rows]
+```
