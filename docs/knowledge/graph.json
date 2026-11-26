@@ -1952,6 +1952,10 @@
     {
       "date": "2026-11-26",
       "decision": "## BRR audit fix and multi-day monthly batch\nFixed redundancy audit: nearest-neighbour pairs at/above .999 are now flagged regardless of representative mass; both members are marked, pair list is deduplicated and written to `redundancy_pairs.csv`. No automatic deletion/merge. Added `scripts.run_period_batch`: recursively discovers completed `evaluation.json` artifacts, requires `daily_representatives.npz` and `row_scores.npz`, excludes all days before 2026-06-21 (normal-only period), runs BRR for all discovered or explicitly supplied dates in one command, then builds monthly supercomponents from all daily actual representative descriptors using existing `graph.direct_scrac` with capacity 200 immediate daily-representative children, threshold .85, lambda .20, acceptance .75. Outputs per-day BRR reports and `monthly/YYYY-MM/monthly_components.npz`, report.json, plus batch_report.json. Monthly stage is label-blind and conserves summed daily raw-row mass. It uses only available evaluated dates; it does not synthesize missing dates or claim a complete calendar month. Unit tests added/updated; execution pending."
+    },
+    {
+      "date": "2026-11-26",
+      "decision": "Add full raw-Parquet batch orchestrator; only analysis days >= 2026-06-21; reuse clean-reference transform; support auto-discovery and explicit date list; monthly aggregation uses all selected days; isolate outputs in dedicated run directory."
     }
   ],
   "direct_scrac_integration": {
@@ -2033,5 +2037,24 @@
       "monthly/YYYY-MM/report.json",
       "monthly/summary.json"
     ]
+  },
+  "full_pipeline_orchestrator": {
+    "status": "implemented_tests_pending_real_data_run",
+    "entrypoint": "scripts.run_full_pipeline_batch",
+    "default_cutoff_inclusive": "2026-06-21",
+    "discovery": "all date=YYYY-MM-DD Parquet folders on/after cutoff",
+    "explicit_days_supported": true,
+    "transform": "reuse existing fitted preprocessing transform; no refit",
+    "stages": [
+      "full chronological 10000-row chunks",
+      "representative selection",
+      "sparse graph and topology-constrained direct SCRAC",
+      "daily supercomponents",
+      "exact row-level evaluation",
+      "behavioral refinement and redundancy audit",
+      "monthly supercomponents"
+    ],
+    "output_root": "artifacts/full_pipeline_run",
+    "safe_overwrite": "only dedicated output folder and only with --overwrite"
   }
 }
