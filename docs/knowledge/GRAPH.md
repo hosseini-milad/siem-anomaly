@@ -259,3 +259,7 @@ flowchart TD
  B --> R[Rarity and redundancy audit]
  B --> U[Uncovered rows]
 ```
+
+
+## BRR audit fix and multi-day monthly batch
+Fixed redundancy audit: nearest-neighbour pairs at/above .999 are now flagged regardless of representative mass; both members are marked, pair list is deduplicated and written to `redundancy_pairs.csv`. No automatic deletion/merge. Added `scripts.run_period_batch`: recursively discovers completed `evaluation.json` artifacts, requires `daily_representatives.npz` and `row_scores.npz`, excludes all days before 2026-06-21 (normal-only period), runs BRR for all discovered or explicitly supplied dates in one command, then builds monthly supercomponents from all daily actual representative descriptors using existing `graph.direct_scrac` with capacity 200 immediate daily-representative children, threshold .85, lambda .20, acceptance .75. Outputs per-day BRR reports and `monthly/YYYY-MM/monthly_components.npz`, report.json, plus batch_report.json. Monthly stage is label-blind and conserves summed daily raw-row mass. It uses only available evaluated dates; it does not synthesize missing dates or claim a complete calendar month. Unit tests added/updated; execution pending.
